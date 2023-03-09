@@ -117,6 +117,25 @@ K_shingles = list[set[str]]
 # METHOD FOR TASK 1
 # Creates the k-Shingles of each document and returns a list of them
 def k_shingles() -> K_shingles:
+    """
+    Given an input array of length M, where each element, i, is a document of length N_i
+    ```
+    [
+        "abcde", # document 1
+        "fghij", # document 2
+        "klmno", # document 3
+    ]
+    ```
+    returns a list of length M, where each element, i, is a set of shingles of length k
+
+    For example, with k=3
+    ```
+    [
+        {"abc", "bcd", "cde"}, # document 1
+        {"fgh", "ghi", "hij"}, # document 2
+        {"klm", "lmn", "mno"}, # document 3
+    ]
+    """
     docs_k_shingles: K_shingles = []  # holds the k-shingles of each document
 
     # implement your code here
