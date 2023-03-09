@@ -5,10 +5,10 @@ import sys  # for system errors and printouts
 from pathlib import Path  # for paths of files
 import os  # for reading the input data
 import time  # for timing
-import random
 import numpy as np
 import numpy.typing as npt
 from typing import TypedDict, Literal
+
 
 class Parameters(TypedDict):
     data: Literal["test", "bbc"] | str
@@ -25,12 +25,12 @@ parameter_file = "default_parameters.ini"  # the main parameters file
 data_main_directory = Path("data")  # the main path were all the data directories are
 parameters_dictionary: Parameters = {
     "data": "bbc",
-    "k":5,
-    "b":4,
-    "r":2,
-    "t":0.5,
-    "naive":False,
-    "permutations":100
+    "k": 5,
+    "b": 4,
+    "r": 2,
+    "t": 0.5,
+    "naive": False,
+    "permutations": 100,
 }  # dictionary that holds the input parameters, key = parameter name, value = value
 document_list: dict[
     int, str
@@ -58,7 +58,7 @@ def read_parameters():
 # DO NOT CHANGE THIS METHOD
 # Reads all the documents in the 'data_path' and stores them in the dictionary 'document_list'
 def read_data(data_path):
-    for (root, dirs, file) in os.walk(data_path):
+    for root, dirs, file in os.walk(data_path):
         for f in file:
             file_path = data_path / f
             doc = open(file_path).read().strip().replace("\n", " ")
@@ -112,6 +112,7 @@ def naive():
 
 
 K_shingles = list[set[str]]
+
 
 # METHOD FOR TASK 1
 # Creates the k-Shingles of each document and returns a list of them
@@ -174,10 +175,9 @@ def signature_set(k_shingles: K_shingles) -> npt.NDArray[np.int64]:
 # Creates the minHash signatures after simulation of permutations
 def min_hash(docs_signature_sets: npt.NDArray[np.int64]) -> npt.NDArray[np.int64]:
     number_of_permutations = parameters_dictionary["permutations"]
-    
+
     min_hash_signatures: npt.NDArray[np.int64] = np.empty(
-        shape=(number_of_permutations, docs_signature_sets.shape[1]),
-        dtype=np.int64
+        shape=(number_of_permutations, docs_signature_sets.shape[1]), dtype=np.int64
     )
 
     rng = np.random.default_rng(seed=42)
