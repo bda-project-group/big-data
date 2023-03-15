@@ -295,7 +295,7 @@ def candidates_similarities(candidate_docs: Candidates, min_hash_matrix: IntArra
 # Returns the document pairs of over t% similarity
 def return_results(lsh_similarity_matrix: list[CandidatePairSimilarity]):
     threshold = parameters_dictionary["t"]
-    document_pairs = []
+    document_pairs: list[tuple[int, int]] = []
 
     for pair in lsh_similarity_matrix:
         if pair.similarity >= threshold:
