@@ -5,7 +5,6 @@ import os  # for reading the input data
 import sys  # for system errors and printouts
 import time  # for timing
 from collections import defaultdict
-from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path  # for paths of files
 from typing import Literal, TypedDict
@@ -13,6 +12,10 @@ import math
 
 import numpy as np
 import numpy.typing as npt
+
+"""
+To improve readability and static code analysis, we've defined a set of type aliases.
+"""
 
 
 class Parameters(TypedDict):
@@ -38,9 +41,9 @@ parameters_dictionary: Parameters = {
     "data": "bbc",
     "k": 5,
     "r": 2,
-    "t": 0.5,
+    "t": 0.6,
     "naive": False,
-    "permutations": 100,
+    "permutations": 20,
     "buckets": 10,
 }  # dictionary that holds the input parameters, key = parameter name, value = value
 
@@ -126,17 +129,23 @@ def naive():
 # Creates the k-Shingles of each document and returns a list of them
 def k_shingles() -> KShingles:
     """
-    Given an input array of length M, where each element, i, is a document of length N_i
-    ```
-    [
-        "abcde", # document 1
-        "fghij", # document 2
-        "klmno", # document 3
-    ]
-    ```
-    returns a list of length M, where each element, i, is a set of shingles of length k
+    Global Parameters:
+        k: int
+            The length of the shingles to be created.
 
-    For example, with k=3
+    Arguments:
+        document_list: dict[int, str] (accessed through global variable)
+            A dictionary of length M, mapping document IDs to documents of length N_i:
+    ```
+    {
+        1: "abcde", # document 1
+        2: "fghij", # document 2
+        3: "klmno", # document 3
+    }
+    ```
+    Returns an array of length M, where each element i is a set of shingles of length k.
+
+    For example, with k=3:
     ```
     [
         {"abc", "bcd", "cde"}, # document 1
@@ -146,7 +155,6 @@ def k_shingles() -> KShingles:
     """
     docs_k_shingles: KShingles = []  # holds the k-shingles of each document
 
-    # implement your code here
     for doc in document_list.values():
         k = parameters_dictionary["k"]
         shingles: set[str] = set()
@@ -161,26 +169,31 @@ def k_shingles() -> KShingles:
 # Creates a signatures set of the documents from the k-shingles list
 def signature_set(k_shingles: KShingles) -> IntArray:
     """
-    Given an input array of length M, where each element, i, is a set of shingles of length N_i
+    Arguments:
+        k_shingles: KShingles
+            Takes an input array of length N, where each element j is a set of shingles that appears in
+            document j:
     ```
     [
-        [shingle1, shingle2, shingle3], # document1
-        [shingle1, shingle2, shingle3], # document2
-        [shingle3, shingle4, shingle5], # document3
+        {shingle1, shingle2, shingle3}, # document1
+        {shingle1, shingle2, shingle3}, # document2
+        {shingle3, shingle4, shingle5}, # document3
     ]
     ```
-
-    returns a matrix of size M x N, where N is the total number of unique shingles in all documents
-    where each row j is a signature of a given shingle, and each column i is a document. The value at i, j is 1
-    if and only if the shingle appears in document i.
+    Returns:
+        IntArray
+            A matrix of size M x N, where M is the total number of unique shingles in all documents,
+            and N is the total number of documnts.
+            Each row i is a signature of a given shingle, and each column j is a document.
+            The value at i, j is 1 if and only if the shingle i appears in document j.
     ```
     [
+        # [document1, document2, document3]
         [1, 1, 0], # shingle1
         [1, 1, 0], # shingle2
         [1, 1, 1], # shingle3
         [0, 0, 1], # shingle4
         [0, 0, 1], # shingle5
-        # [document1, document2, document3]
     ]
     ```
     """
@@ -188,13 +201,19 @@ def signature_set(k_shingles: KShingles) -> IntArray:
     for shingles in k_shingles:
         unique_shingles.update(shingles)
 
-    signature_set: IntArray = np.ndarray(
-        [len(unique_shingles), len(k_shingles)], dtype=np.int64
+    signature_set: IntArray = np.zeros(
+        shape=[len(unique_shingles), len(k_shingles)], dtype=np.int64
     )
 
-    for i, shingle in enumerate(unique_shingles):
+    # Sets have no ordering guarantee, so we need to sort them
+    # for the signature set to be consistent and reproducable.
+    ordered_shingles = sorted(list(unique_shingles))
+
+    for i, shingle in enumerate(ordered_shingles):
         for j, document in enumerate(k_shingles):
-            signature_set[i, j] = 1 if shingle in document else 0
+            if shingle in document:
+                signature_set[i, j] = 1
+
     return signature_set
 
 
@@ -202,9 +221,26 @@ def signature_set(k_shingles: KShingles) -> IntArray:
 # Creates the minHash signatures after simulation of permutations
 def min_hash(docs_signature_sets: IntArray) -> IntArray:
     """
-    Given an input matrix of size M x N, where M is the number of permutations and N is the number of documents
-    where each row j is a permutation of the signature set, and each column i is a document. The value at i, j is the
-    index of the shingle that appears first in the permutation of the signature set.
+    Takes a matrix of size M x N, where M is the total number of unique shingles in all documents,
+    and N is the total number of documents. Each row i is the signature set of a given shingle, and
+    each column j is a document.
+
+    Global Parameters:
+        permutations: int
+            The number of permutations to simulate.
+
+    Arguments:
+        docs_signature_sets: IntArray
+            A matrix of size M x N, where M is the total number of unique shingles
+            in all documents, and N is the total number of documents. Each row i is the signature
+            set of a given shingle, and each column j is a document.
+
+    Returns:
+        IntArray
+            A matrix of size P x N, where P is the number of permutations and N is the number of
+            documents.
+            Each item (i, j) is the index of of the first shingle, i, that appears in document, j,
+            for a given permutation.
     """
     number_of_permutations = parameters_dictionary["permutations"]
 
@@ -214,7 +250,6 @@ def min_hash(docs_signature_sets: IntArray) -> IntArray:
 
     rng = np.random.default_rng(seed=42)
     for i in range(number_of_permutations):
-        print(f"permutation {i}")
         permutation = rng.permutation(docs_signature_sets)
         signature: IntArray = np.argmax(permutation, axis=0)
         min_hash_signatures[i, :] = signature
@@ -233,7 +268,30 @@ def hash(band: IntArray, number_of_buckets: int) -> IntArray:
 
 # METHOD FOR TASK 4
 # Hashes the MinHash Signature Matrix into buckets and find candidate similar documents
-def lsh(m_matrix: IntArray):
+def lsh(m_matrix: IntArray) -> Candidates:
+    """
+    For a given P x N matrix, partitions into P / `r` bands, and hashes each column in each band
+    to a bucket. Returns a set of candidate pairs of documents believed to be similar, i.e. hashes
+    to the same bucket for a given band.
+
+    Buckets are unique accross bands.
+
+    Global Parameters:
+        r: int
+            The number of rows in each band. Must be a divisor of P, the number of permutations.
+
+    Arguments:
+        m_matrix: IntArray
+            A min-hash matrix of size P x N where P is the number of permutations and N is the number
+            of documents. Each item (i, j) is the index of of the first shingle, i, that appears in
+            document, j, for a given permutation. The matrix is the return value of the `min_hash` function.
+
+    Returns:
+        Candidates
+            A set of candidate pairs of documents believed to be similar, i.e. hashes to the same bucket
+            for a given band. Each pair is represented as a tuple of column indices in the signature matrix.
+    """
+
     rows = parameters_dictionary["r"]
     number_of_buckets = parameters_dictionary["buckets"]
     number_of_bands = int(m_matrix.shape[0] / rows)
@@ -244,7 +302,9 @@ def lsh(m_matrix: IntArray):
     candidates: Candidates = set()
 
     for band_index in range(number_of_bands):
-        band = m_matrix[band_index : band_index + rows, :]
+        band = m_matrix[band_index * rows : band_index * rows + rows, :]
+
+        # Hash each column in the band to a bucket
         buckets = np.apply_along_axis(
             func1d=hash, axis=0, arr=band, number_of_buckets=number_of_buckets
         )
@@ -262,18 +322,37 @@ def lsh(m_matrix: IntArray):
     return candidates
 
 
-@dataclass
-class CandidatePairSimilarity:
-    column_index_1: int
-    column_index_2: int
-    similarity: float
-
-
 # METHOD FOR TASK 5
 # Calculates the similarities of the candidate documents
 def candidates_similarities(
     candidate_docs: Candidates, min_hash_matrix: IntArray
 ) -> LSHSimilarityMatrix:
+    """
+    Calculates the similarity of each pair of candidate documents.
+
+    Global Parameters:
+        document_list: list[str]
+            The list of documents to be processed.
+
+    Arguments:
+        candidate_docs: Candidates
+            A set of candidate pairs of documents believed to be similar, the results of `lsh` function.
+        min_hash_matrix: IntArray
+            A min-hash matrix of size P x N where P is the number of permutations and N is the number
+            of documents. Each item (i, j) is the index of of the first shingle, i, that appears in
+            document, j, for a given permutation. The matrix is the return value of the `min_hash` function.
+
+    Returns:
+        LSHSimilarityMatrix
+            A vector of size `L choose 2` where `L` is the number of documents. Each item is the
+            similarity of a pair of candidate documents. The similarity is the number of rows in
+            the min-hash matrix where the two documents have the same signature, divided by the
+            total number of rows in the min-hash matrix.
+
+            The vector is stored in a lower triangular matrix, where the index of each item is
+            calculated using the `get_triangle_index` function.
+    """
+
     similarity_matrix: LSHSimilarityMatrix = np.zeros(
         shape=(math.comb(len(document_list), 2)), dtype=np.float64
     )
@@ -293,37 +372,41 @@ def candidates_similarities(
     return similarity_matrix
 
 
-def inverse_triangle_index(
-    triangle_index: int, number_of_columns: int
-) -> tuple[int, int]:
-    """
-    Returns the indices of the matrix that correspond to the given triangle index
-    """
-    for index, columns in enumerate(reversed(range(0, number_of_columns))):
-        base_index = index * columns + 1
-        if triangle_index >= base_index and triangle_index < base_index + columns:
-            column_index_1 = index
-            column_index_2 = triangle_index - base_index
-            return (column_index_1, column_index_2)
-
-    return (0, 0)
-
-
 # METHOD FOR TASK 6
 # Returns the document pairs of over t% similarity
 def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[int, int]]:
-    threshold = parameters_dictionary["t"]
-    document_pairs: list[tuple[int, int]] = []
+    """
+    Finds the document pairs that are above the threshold similarity.
 
+    Global Parameters:
+        t: float
+            The threshold similarity. The default value is 0.6.
+
+    Arguments:
+        lsh_similarity_matrix: LSHSimilarityMatrix
+            A vector of size `L choose 2` where `L` is the number of documents. Each item is the
+            similarity of a pair of candidate documents. The vector is stored in a lower triangular
+            matrix, where the index of each item is calculated using the `get_triangle_index` function.
+            This is the return value of the `candidates_similarities` function.
+
+    Returns:
+        list[tuple[int, int]]
+            A list of document index pairs that are above the threshold similarity.
+    """
+    threshold = parameters_dictionary["t"]
+
+    # Find the triangle indices of the similarity matrix that are above the
+    # threshold
     indices_above_threshold = np.argwhere(lsh_similarity_matrix >= threshold)
+
+    # Find the row and column indices of the similarity matrix from the
+    # triangle indices
     row, column = np.unravel_index(
         indices_above_threshold, shape=(len(document_list), len(document_list))
     )
-    document_pairs = list(zip(row.tolist(), column.tolist()))
-    # for index in indices_above_threshold:
-    #     row, col = inverse_triangle_index(index, )
-    #     document_pairs.append((row, col))
 
+    # Convert the row and column indices to document pairs
+    document_pairs = list(zip(row.flatten().tolist(), column.flatten().tolist()))
     return document_pairs
 
 
@@ -332,12 +415,42 @@ def count_false_neg_and_pos(
     lsh_similarity_matrix: LSHSimilarityMatrix,
     naive_similarity_matrix: list[float],
 ):
+    """
+    Counts the number of false positives and false negatives in the LSH similarity matrix.
+
+    False positives are defined as pairs of documents that are above the similarity threshold in `lsh_similarity_matrix`,
+    but not in `naive_similarity_matrix`.
+
+    False negatives are defined as pairs of documents that are above the similarity threshold in `naive_similarity_matrix`,
+    but not in `lsh_similarity_matrix`.
+
+    Global Parameters:
+        t: float
+            The threshold similarity. The default value is 0.6.
+
+    Arguments:
+        lsh_similarity_matrix: LSHSimilarityMatrix
+            A vector of size `L choose 2` where `L` is the number of documents. Each item is the
+            similarity of a pair of candidate documents. The vector is stored in a lower triangular
+            matrix, where the index of each item is calculated using the `get_triangle_index` function.
+            This is the return value of the `candidates_similarities` function.
+
+        naive_similarity_matrix: list[float]
+            A vector of size `L choose 2` where `L` is the number of documents. Each item is the
+            similarity of a pair of candidate documents. The vector is stored in a lower triangular
+            matrix, where the index of each item is calculated using the `get_triangle_index` function.
+            This is the return value of the `naive` function.
+
+    Returns:
+        tuple[int, int]
+            A tuple of two integers, the number of false negatives and the number of false positives.
+    """
+
     false_negatives = 0
     false_positives = 0
 
     threshold = parameters_dictionary["t"]
 
-    # implement your code here
     for i, naive_similarity in enumerate(naive_similarity_matrix):
         lsh_similarity = lsh_similarity_matrix[i]
 
@@ -404,7 +517,6 @@ if __name__ == "__main__":
     print("Starting the Locality-Sensitive Hashing...")
     t10 = time.time()
     candidate_docs = lsh(min_hash_signatures)
-    print(f"{len(candidate_docs)=}")
     t11 = time.time()
     print("LSH took", t11 - t10, "sec\n")
 
@@ -412,7 +524,6 @@ if __name__ == "__main__":
     print("Starting to calculate similarities of the candidate documents...")
     t12 = time.time()
     lsh_similarity_matrix = candidates_similarities(candidate_docs, min_hash_signatures)
-    print(f"{lsh_similarity_matrix.shape=}, {len(naive_similarity_matrix)=}")
     t13 = time.time()
     print("Candidate documents similarity calculation took", t13 - t12, "sec\n\n")
 
