@@ -110,7 +110,7 @@ def naive():
 
     # Using triangular array to store the similarities, avoiding half size and similarities of i==j
     num_elems = int(len(docs_Sets) * (len(docs_Sets) - 1) / 2)
-    similarity_matrix = [0 for x in range(num_elems)]
+    similarity_matrix: list[float] = [0 for x in range(num_elems)]
     for i in range(len(docs_Sets)):
         for j in range(i + 1, len(docs_Sets)):
             similarity_matrix[get_triangle_index(i, j, len(docs_Sets))] = jaccard(
