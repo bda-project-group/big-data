@@ -31,6 +31,8 @@ class Parameters(TypedDict):
 KShingles = list[set[str]]
 Candidates = set[tuple[int, int]]
 IntArray = npt.NDArray[np.int64]
+MinHashMatrix = IntArray
+SignatureSet = IntArray
 LSHSimilarityMatrix = npt.NDArray[np.float64]
 
 
@@ -167,7 +169,7 @@ def k_shingles() -> KShingles:
 
 # METHOD FOR TASK 2
 # Creates a signatures set of the documents from the k-shingles list
-def signature_set(k_shingles: KShingles) -> IntArray:
+def signature_set(k_shingles: KShingles) -> SignatureSet:
     """
     Arguments:
         k_shingles: KShingles
@@ -181,7 +183,7 @@ def signature_set(k_shingles: KShingles) -> IntArray:
     ]
     ```
     Returns:
-        IntArray
+        SignatureSet
             A matrix of size M x N, where M is the total number of unique shingles in all documents,
             and N is the total number of documnts.
             Each row i is a signature of a given shingle, and each column j is a document.
@@ -201,7 +203,7 @@ def signature_set(k_shingles: KShingles) -> IntArray:
     for shingles in k_shingles:
         unique_shingles.update(shingles)
 
-    signature_set: IntArray = np.zeros(
+    signature_set: SignatureSet = np.zeros(
         shape=[len(unique_shingles), len(k_shingles)], dtype=np.int64
     )
 
@@ -219,7 +221,7 @@ def signature_set(k_shingles: KShingles) -> IntArray:
 
 # METHOD FOR TASK 3
 # Creates the minHash signatures after simulation of permutations
-def min_hash(docs_signature_sets: IntArray) -> IntArray:
+def min_hash(docs_signature_sets: SignatureSet) -> MinHashMatrix:
     """
     Takes a matrix of size M x N, where M is the total number of unique shingles in all documents,
     and N is the total number of documents. Each row i is the signature set of a given shingle, and
@@ -230,13 +232,13 @@ def min_hash(docs_signature_sets: IntArray) -> IntArray:
             The number of permutations to simulate.
 
     Arguments:
-        docs_signature_sets: IntArray
+        docs_signature_sets: SignatureSet
             A matrix of size M x N, where M is the total number of unique shingles
             in all documents, and N is the total number of documents. Each row i is the signature
             set of a given shingle, and each column j is a document.
 
     Returns:
-        IntArray
+        MinHashMatrix
             A matrix of size P x N, where P is the number of permutations and N is the number of
             documents.
             Each item (i, j) is the index of of the first shingle, i, that appears in document, j,
@@ -244,14 +246,14 @@ def min_hash(docs_signature_sets: IntArray) -> IntArray:
     """
     number_of_permutations = parameters_dictionary["permutations"]
 
-    min_hash_signatures: IntArray = np.empty(
+    min_hash_signatures: MinHashMatrix = np.empty(
         shape=(number_of_permutations, docs_signature_sets.shape[1]), dtype=np.int64
     )
 
     rng = np.random.default_rng(seed=42)
     for i in range(number_of_permutations):
         permutation = rng.permutation(docs_signature_sets)
-        signature: IntArray = np.argmax(permutation, axis=0)
+        signature: MinHashMatrix = np.argmax(permutation, axis=0)
         min_hash_signatures[i, :] = signature
 
     return min_hash_signatures
@@ -268,7 +270,7 @@ def hash(band: IntArray, number_of_buckets: int) -> IntArray:
 
 # METHOD FOR TASK 4
 # Hashes the MinHash Signature Matrix into buckets and find candidate similar documents
-def lsh(m_matrix: IntArray) -> Candidates:
+def lsh(m_matrix: MinHashMatrix) -> Candidates:
     """
     For a given P x N matrix, partitions into P / `r` bands, and hashes each column in each band
     to a bucket. Returns a set of candidate pairs of documents believed to be similar, i.e. hashes
@@ -283,7 +285,7 @@ def lsh(m_matrix: IntArray) -> Candidates:
             The number of buckets to hash each band into.
 
     Arguments:
-        m_matrix: IntArray
+        m_matrix: MinHashMatrix
             A min-hash matrix of size P x N where P is the number of permutations and N is the number
             of documents. Each item (i, j) is the index of of the first shingle, i, that appears in
             document, j, for a given permutation. The matrix is the return value of the `min_hash` function.
@@ -329,7 +331,7 @@ def lsh(m_matrix: IntArray) -> Candidates:
 # METHOD FOR TASK 5
 # Calculates the similarities of the candidate documents
 def candidates_similarities(
-    candidate_docs: Candidates, min_hash_matrix: IntArray
+    candidate_docs: Candidates, min_hash_matrix: MinHashMatrix
 ) -> LSHSimilarityMatrix:
     """
     Calculates the similarity of each pair of candidate documents.
@@ -341,7 +343,7 @@ def candidates_similarities(
     Arguments:
         candidate_docs: Candidates
             A set of candidate pairs of documents believed to be similar, the results of `lsh` function.
-        min_hash_matrix: IntArray
+        min_hash_matrix: MinHashMatrix
             A min-hash matrix of size P x N where P is the number of permutations and N is the number
             of documents. Each item (i, j) is the index of of the first shingle, i, that appears in
             document, j, for a given permutation. The matrix is the return value of the `min_hash` function.
