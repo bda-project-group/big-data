@@ -83,7 +83,7 @@ def jaccard(doc1, doc2):
 
 # DO NOT CHANGE THIS METHOD
 # Define a function to map a 2D matrix coordinate into a 1D index.
-def get_triangle_index(i, j, length):
+def get_triangle_index(i: int, j: int, length: int) -> int:
     if i == j:  # that's an error.
         sys.stderr.write("Can't access triangle matrix with i == j")
         sys.exit(1)
