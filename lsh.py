@@ -1,17 +1,17 @@
 # This is the code for the LSH project of TDT4305
 
 import configparser  # for reading the parameters file
-import sys  # for system errors and printouts
-from pathlib import Path  # for paths of files
 import os  # for reading the input data
+import sys  # for system errors and printouts
 import time  # for timing
+from collections import defaultdict
+from dataclasses import dataclass
+from itertools import combinations
+from pathlib import Path  # for paths of files
+from typing import Literal, TypedDict
+
 import numpy as np
 import numpy.typing as npt
-from typing import TypedDict, Literal
-import hashlib
-import math
-from collections import defaultdict
-from itertools import combinations
 
 
 class Parameters(TypedDict):
@@ -24,7 +24,7 @@ class Parameters(TypedDict):
     t: float
 
 
-K_shingles = list[set[str]]
+KShingles = list[set[str]]
 Candidates = set[tuple[int, int]]
 IntArray = npt.NDArray[np.int64]
 
@@ -41,9 +41,9 @@ parameters_dictionary: Parameters = {
     "permutations": 100,
     "buckets": 10,
 }  # dictionary that holds the input parameters, key = parameter name, value = value
-document_list: dict[
-    int, str
-] = dict()  # dictionary of the input documents, key = document id, value = the document
+
+# dictionary of the input documents, key = document id, value = the document
+document_list: dict[int, str] = dict()
 
 
 # DO NOT CHANGE THIS METHOD
@@ -122,7 +122,7 @@ def naive():
 
 # METHOD FOR TASK 1
 # Creates the k-Shingles of each document and returns a list of them
-def k_shingles() -> K_shingles:
+def k_shingles() -> KShingles:
     """
     Given an input array of length M, where each element, i, is a document of length N_i
     ```
@@ -142,7 +142,7 @@ def k_shingles() -> K_shingles:
         {"klm", "lmn", "mno"}, # document 3
     ]
     """
-    docs_k_shingles: K_shingles = []  # holds the k-shingles of each document
+    docs_k_shingles: KShingles = []  # holds the k-shingles of each document
 
     # implement your code here
     for doc in document_list.values():
@@ -157,7 +157,7 @@ def k_shingles() -> K_shingles:
 
 # METHOD FOR TASK 2
 # Creates a signatures set of the documents from the k-shingles list
-def signature_set(k_shingles: K_shingles) -> IntArray:
+def signature_set(k_shingles: KShingles) -> IntArray:
     """
     Given an input array of length M, where each element, i, is a set of shingles of length N_i
     ```
@@ -261,22 +261,45 @@ def lsh(m_matrix: IntArray):
     return candidates
 
 
+@dataclass
+class CandidatePairSimilarity:
+    column_index_1: int
+    column_index_2: int
+    similarity: float
+
+
 # METHOD FOR TASK 5
 # Calculates the similarities of the candidate documents
 def candidates_similarities(candidate_docs: Candidates, min_hash_matrix: IntArray):
-    similarity_matrix = []
+    similarity_matrix: list[CandidatePairSimilarity] = []
 
-    # implement your code here
+    for column_index_1, column_index_2 in candidate_docs:
+        column_1 = min_hash_matrix[:, column_index_1]
+        column_2 = min_hash_matrix[:, column_index_2]
+        number_of_rows = min_hash_matrix.shape[0]
+
+        similarity = (column_1 == column_2).sum() / number_of_rows
+
+        similarity_matrix.append(
+            CandidatePairSimilarity(
+                column_index_1,
+                column_index_2,
+                similarity,
+            )
+        )
 
     return similarity_matrix
 
 
 # METHOD FOR TASK 6
 # Returns the document pairs of over t% similarity
-def return_results(lsh_similarity_matrix):
+def return_results(lsh_similarity_matrix: list[CandidatePairSimilarity]):
+    threshold = parameters_dictionary["t"]
     document_pairs = []
 
-    # implement your code here
+    for pair in lsh_similarity_matrix:
+        if pair.similarity >= threshold:
+            document_pairs.append((pair.column_index_1, pair.column_index_2))
 
     return document_pairs
 
