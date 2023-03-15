@@ -279,6 +279,8 @@ def lsh(m_matrix: IntArray) -> Candidates:
     Global Parameters:
         r: int
             The number of rows in each band. Must be a divisor of P, the number of permutations.
+        buckets: int
+            The number of buckets to hash each band into.
 
     Arguments:
         m_matrix: IntArray
@@ -302,7 +304,9 @@ def lsh(m_matrix: IntArray) -> Candidates:
     candidates: Candidates = set()
 
     for band_index in range(number_of_bands):
-        band = m_matrix[band_index * rows : band_index * rows + rows, :]
+        # Offset for the rows in the current band
+        offset = band_index * rows
+        band = m_matrix[offset : offset + rows, :]
 
         # Hash each column in the band to a bucket
         buckets = np.apply_along_axis(
