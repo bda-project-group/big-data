@@ -108,7 +108,8 @@ def get_triangle_index(i: int, j: int, length: int) -> int:
 
 
 # DO NOT CHANGE THIS METHOD
-# Calculates the similarities of all the combinations of documents and returns the similarity triangular matrix
+# Calculates the similarities of all the combinations of documents and returns the similarity
+# triangular matrix.
 def naive():
     docs_Sets = []  # holds the set of words of each document
 
@@ -173,8 +174,8 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
     """
     Arguments:
         k_shingles: KShingles
-            Takes an input array of length N, where each element j is a set of shingles that appears in
-            document j:
+            Takes an input array of length N, where each element j is a set of shingles that appears
+            in document j.
     ```
     [
         {shingle1, shingle2, shingle3}, # document1
@@ -286,14 +287,16 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
 
     Arguments:
         m_matrix: MinHashMatrix
-            A min-hash matrix of size P x N where P is the number of permutations and N is the number
-            of documents. Each item (i, j) is the index of of the first shingle, i, that appears in
-            document, j, for a given permutation. The matrix is the return value of the `min_hash` function.
+            A min-hash matrix of size P x N, where P is the number of permutations and N is the
+            number of documents. Each item (i, j) is the index of of the first shingle, i, that
+            appears in document, j, for a given permutation. The matrix is the return value of the
+            `min_hash` function.
 
     Returns:
         Candidates
-            A set of candidate pairs of documents believed to be similar, i.e. hashes to the same bucket
-            for a given band. Each pair is represented as a tuple of column indices in the signature matrix.
+            A set of candidate pairs of documents believed to be similar, i.e. hashes to the same
+            bucket for a given band. Each pair is represented as a tuple of column indices in the
+            signature matrix.
     """
 
     rows = parameters_dictionary["r"]
@@ -342,11 +345,12 @@ def candidates_similarities(
 
     Arguments:
         candidate_docs: Candidates
-            A set of candidate pairs of documents believed to be similar, the results of `lsh` function.
+            A set of candidate pairs of documents believed to be similar (results of `lsh`).
         min_hash_matrix: MinHashMatrix
-            A min-hash matrix of size P x N where P is the number of permutations and N is the number
-            of documents. Each item (i, j) is the index of of the first shingle, i, that appears in
-            document, j, for a given permutation. The matrix is the return value of the `min_hash` function.
+            A min-hash matrix of size P x N where P is the number of permutations and N is the
+            number of documents. Each item (i, j) is the index of of the first shingle, i, that
+            appears in document, j, for a given permutation. The matrix is the return value of the
+            `min_hash` function.
 
     Returns:
         LSHSimilarityMatrix
@@ -370,9 +374,7 @@ def candidates_similarities(
 
         similarity = (column_1 == column_2).sum() / number_of_rows
 
-        triangle_index = get_triangle_index(
-            column_index_1, column_index_2, len(document_list)
-        )
+        triangle_index = get_triangle_index(column_index_1, column_index_2, len(document_list))
         similarity_matrix[triangle_index] = similarity
 
     return similarity_matrix
@@ -392,8 +394,8 @@ def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[int
         lsh_similarity_matrix: LSHSimilarityMatrix
             A vector of size `L choose 2` where `L` is the number of documents. Each item is the
             similarity of a pair of candidate documents. The vector is stored in a lower triangular
-            matrix, where the index of each item is calculated using the `get_triangle_index` function.
-            This is the return value of the `candidates_similarities` function.
+            matrix, where the index of each item is calculated using the `get_triangle_index`
+            function. This is the return value of the `candidates_similarities` function.
 
     Returns:
         list[tuple[int, int]]
@@ -424,11 +426,11 @@ def count_false_neg_and_pos(
     """
     Counts the number of false positives and false negatives in the LSH similarity matrix.
 
-    False positives are defined as pairs of documents that are above the similarity threshold in `lsh_similarity_matrix`,
-    but not in `naive_similarity_matrix`.
+    False positives are defined as pairs of documents that are above the similarity threshold in
+    `lsh_similarity_matrix`, but not in `naive_similarity_matrix`.
 
-    False negatives are defined as pairs of documents that are above the similarity threshold in `naive_similarity_matrix`,
-    but not in `lsh_similarity_matrix`.
+    False negatives are defined as pairs of documents that are above the similarity threshold in
+    `naive_similarity_matrix`, but not in `lsh_similarity_matrix`.
 
     Global Parameters:
         t: float
@@ -438,18 +440,19 @@ def count_false_neg_and_pos(
         lsh_similarity_matrix: LSHSimilarityMatrix
             A vector of size `L choose 2` where `L` is the number of documents. Each item is the
             similarity of a pair of candidate documents. The vector is stored in a lower triangular
-            matrix, where the index of each item is calculated using the `get_triangle_index` function.
-            This is the return value of the `candidates_similarities` function.
+            matrix, where the index of each item is calculated using the `get_triangle_index`
+            function. This is the return value of the `candidates_similarities` function.
 
         naive_similarity_matrix: list[float]
             A vector of size `L choose 2` where `L` is the number of documents. Each item is the
             similarity of a pair of candidate documents. The vector is stored in a lower triangular
-            matrix, where the index of each item is calculated using the `get_triangle_index` function.
-            This is the return value of the `naive` function.
+            matrix, where the index of each item is calculated using the `get_triangle_index`
+            function. This is the return value of the `naive` function.
 
     Returns:
         tuple[int, int]
-            A tuple of two integers, the number of false negatives and the number of false positives.
+            A tuple of two integers: the number of false negatives and the number of false
+            positives.
     """
 
     false_negatives = 0
