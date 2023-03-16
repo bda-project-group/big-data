@@ -1,12 +1,10 @@
-# Introduction
-This is the repository for exercises in TDT4135 Big Data Architectures at NTNU.
+# big-data
 
-It is maintained by [Hermann Mørkrid](https://github.com/hermannm) and [Lars Waage](https://github.com/larwaa)
+Project repository for the course [Big Data Architecture](https://www.ntnu.edu/studies/courses/TDT4305) at NTNU Trondheim, spring 2023. Made by [Hermann Mørkrid](https://github.com/hermannm) and [Lars Waage](https://github.com/larwaa).
 
-# Structure
-The repository contains a set of project files for exercise 2.
-The purpose of the exercise is to identify similar news articles from a set of BBC articles using the Locality-Sensitive Hashing (LSH) method.
+## Project Structure
 
-* [data](data): The raw data for the project, containing test data and BBC news articles.
-* [default_parameters.ini](default_parameters.ini): The default project parameters.
-* [lsh.py](lsh.py): The exercise implementation code.
+Each subfolder contains an assignment of the project, all implemented in Python.
+
+- `spark` contains notebooks that use [Spark](https://spark.apache.org/) to analyze the data in the `data` subfolder. The data was stored and analyzed on the [Databricks](https://www.databricks.com/) platform.
+- `locality_sensitive_hashing` implements the [Locality-Sensitive Hashing](https://en.wikipedia.org/wiki/Locality-sensitive_hashing) algorithm to analyze similarities between BBC articles in the `data/bbc` subfolder.
