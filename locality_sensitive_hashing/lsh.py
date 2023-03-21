@@ -9,8 +9,8 @@ The project consists of 6 implementation tasks, which are marked with # TASK 1, 
 `k_singles` creates the k-shingles of each document and returns a list of them. The shingles are based around
 characters, rather than words, as it was implemented prior to the updates to the project description.
 
-`signature_set` creates the signature set representation of the document shingles, stored as a dense matrix of 
-indices of the shingles that exist in each document.
+`signature_set` creates the signature set representation of the document shingles, stored as a list of length `N`,
+where each element `i` is a list of indices of shingles that appear in document `i`.
 
 `_next_prime` is a helper function for the `min_hash` function, which adds utility to find the next prime number greater
 than a given integer. It is based on the Miller-Rabin primality test, which is a probabilistic test for primality.
@@ -69,7 +69,7 @@ KShingles = list[npt.NDArray[np.str_]]
 Candidates = set[tuple[int, int]]
 IntArray = npt.NDArray[np.int64]
 MinHashMatrix = IntArray
-DenseSignatureSet = list[npt.NDArray[np.intp]]
+SignatureSet = list[npt.NDArray[np.intp]]
 LSHSimilarityMatrix = npt.NDArray[np.float64]
 
 
@@ -268,11 +268,12 @@ total_shingles: int = 0
 
 # METHOD FOR TASK 2
 # Creates a signatures set of the documents from the k-shingles list
-def signature_set(k_shingles: KShingles) -> DenseSignatureSet:
+def signature_set(k_shingles: KShingles) -> SignatureSet:
     """
-    For a given list of k-shingles per document, creates a dense signature set of the documents.
+    For a given list of k-shingles per document, creates a signature set of the documents.
     Since a boolean matrix representation is [typically sparse](http://infolab.stanford.edu/~ullman/mining/2009/similarity1.pdf),
-    we will use a dense representation instead.
+    the signature set is represented as a list of length N, where each element i is an array of
+    indices of shingles that appear in document i.
 
     Arguments:
         k_shingles: KShingles
@@ -292,7 +293,7 @@ def signature_set(k_shingles: KShingles) -> DenseSignatureSet:
     ```
 
     Returns:
-        DenseSignatureSet
+        SignatureSet
             A list of length N, where each element i is an array of indices of shingles that appear
             in document i.
     ```
@@ -310,8 +311,7 @@ def signature_set(k_shingles: KShingles) -> DenseSignatureSet:
     global total_shingles
     total_shingles = len(unique_shingles)
 
-    print("Total shingles:", len(unique_shingles))
-    dense_signature_set: DenseSignatureSet = []
+    signature_set: SignatureSet = []
 
     # Sets have no ordering guarantee, so we need to sort them
     # for the signature set to be consistent and reproducable.
@@ -322,16 +322,16 @@ def signature_set(k_shingles: KShingles) -> DenseSignatureSet:
         mask = np.isin(ordered_shingles, document, assume_unique=True)
         # Get the indices of the shingles that appear in the document
         indices = np.nonzero(mask)[0]
-        dense_signature_set.append(indices)
+        signature_set.append(indices)
 
-    return dense_signature_set
+    return signature_set
 
 
 # METHOD FOR TASK 3
 # Creates the minHash signatures after simulation of permutations
-def min_hash(signature_set: DenseSignatureSet) -> MinHashMatrix:
+def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
     """
-    Takes a dense signature set and simulates permutations using random hash functions
+    Takes a signature set, the output from `signature_set`, and simulates permutations using random hash functions
     to create a minHash signature matrix.
 
     The hash function is of the form
@@ -348,7 +348,7 @@ def min_hash(signature_set: DenseSignatureSet) -> MinHashMatrix:
             The number of permutations to simulate.
 
     Arguments:
-        signature_set: DenseSignatureSet
+        signature_set: SignatureSet
             A list of length N, where each element i is an array of indices of shingles that appear
             in document i.
 
