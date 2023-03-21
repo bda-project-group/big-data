@@ -9,6 +9,8 @@ from itertools import combinations
 from pathlib import Path  # for paths of files
 from typing import Literal, TypedDict
 import math
+import random
+
 
 import numpy as np
 import numpy.typing as npt
@@ -28,11 +30,11 @@ class Parameters(TypedDict):
     t: float
 
 
-KShingles = list[set[str]]
+KShingles = list[npt.NDArray[np.str_]]
 Candidates = set[tuple[int, int]]
 IntArray = npt.NDArray[np.int64]
 MinHashMatrix = IntArray
-SignatureSet = IntArray
+DenseSignatureSet = list[npt.NDArray[np.intp]]
 LSHSimilarityMatrix = npt.NDArray[np.float64]
 
 
@@ -164,14 +166,79 @@ def k_shingles() -> KShingles:
         for i in range(len(doc) - k + 1):
             shingles.add(doc[i : i + k])
 
-        docs_k_shingles.append(shingles)
+        docs_k_shingles.append(np.array(list(shingles)))
     return docs_k_shingles
+
+
+def miller_rabin_test(n: int, k: int = 100) -> bool:
+    """
+    Miller-Rabin test
+    Derived from pseudocode in [Miller-Rabin test](https://en.wikipedia.org/wiki/Miller-Rabin_primality_test).
+
+    Arguments:
+        n: int
+            An odd integer > 2 to be tested for primality
+        k: int
+            The number of rounds of testing to perform
+    Returns:
+        bool
+            True if n is _probably_ prime, False if n is _definitely_ composite
+    """
+    s, d = 0, n - 1
+    while d % 2 == 0:
+        s += 1
+        d //= 2
+
+    for _ in range(k):
+        a = random.randint(2, n - 1)
+        x = pow(a, d, n)
+
+        if x == 1 or x == n - 1:
+            continue
+
+        for _ in range(s - 1):
+            x = pow(x, 2, n)
+            if x == 1:
+                return False
+
+            if x == n - 1:
+                break
+        else:
+            return False
+    return True
+
+
+def next_prime(n: int, seed=42) -> int:
+    """
+    Finds the next probable prime number after `n`, based on the Miller-Rabin test.
+
+    Arguments:
+        n: int
+            An odd integer > 2
+        seed: int
+            The seed to use for the random number generator
+    """
+    random.seed(seed)
+
+    assert n % 2 == 1, "n must be odd"
+    assert n > 2, "n must be greater than 2"
+
+    while not (miller_rabin_test(n)):
+        n += 2
+    return n
+
+
+total_shingles: int = 0
 
 
 # METHOD FOR TASK 2
 # Creates a signatures set of the documents from the k-shingles list
-def signature_set(k_shingles: KShingles) -> SignatureSet:
+def signature_set(k_shingles: KShingles) -> DenseSignatureSet:
     """
+    For a given list of k-shingles per document, creates a dense signature set of the documents.
+    Since a boolean matrix representation is [typically sparse](http://infolab.stanford.edu/~ullman/mining/2009/similarity1.pdf),
+    we will use a dense representation instead.
+
     Arguments:
         k_shingles: KShingles
             Takes an input array of length N, where each element j is a set of shingles that appears
@@ -183,20 +250,21 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
         {shingle3, shingle4, shingle5}, # document3
     ]
     ```
+
+    Which has the unique shingles:
+    ```
+    [shingle1, shingle2, shingle3, shingle4, shingle5]
+    ```
+
     Returns:
-        SignatureSet
-            A matrix of size M x N, where M is the total number of unique shingles in all documents,
-            and N is the total number of documnts.
-            Each row i is a signature of a given shingle, and each column j is a document.
-            The value at i, j is 1 if and only if the shingle i appears in document j.
+        DenseSignatureSet
+            A list of length N, where each element i is an array of indices of shingles that appear
+            in document i.
     ```
     [
-        # [document1, document2, document3]
-        [1, 1, 0], # shingle1
-        [1, 1, 0], # shingle2
-        [1, 1, 1], # shingle3
-        [0, 0, 1], # shingle4
-        [0, 0, 1], # shingle5
+        [0, 1, 2] # document 1
+        [0, 1, 2] # document 2
+        [2, 3, 4] # document 3
     ]
     ```
     """
@@ -204,39 +272,50 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
     for shingles in k_shingles:
         unique_shingles.update(shingles)
 
-    signature_set: SignatureSet = np.zeros(
-        shape=[len(unique_shingles), len(k_shingles)], dtype=np.int64
-    )
+    global total_shingles
+    total_shingles = len(unique_shingles)
+
+    print("Total shingles:", len(unique_shingles))
+    dense_signature_set: DenseSignatureSet = []
 
     # Sets have no ordering guarantee, so we need to sort them
     # for the signature set to be consistent and reproducable.
-    ordered_shingles = sorted(list(unique_shingles))
+    ordered_shingles = np.sort(np.array(list(unique_shingles)))
 
-    for i, shingle in enumerate(ordered_shingles):
-        for j, document in enumerate(k_shingles):
-            if shingle in document:
-                signature_set[i, j] = 1
+    for document in k_shingles:
+        # Determine which shingles appear in the document and return a boolean mask
+        mask = np.isin(ordered_shingles, document, assume_unique=True)
+        # Get the indices of the shingles that appear in the document
+        indices = np.nonzero(mask)[0]
+        dense_signature_set.append(indices)
 
-    return signature_set
+    return dense_signature_set
 
 
 # METHOD FOR TASK 3
 # Creates the minHash signatures after simulation of permutations
-def min_hash(docs_signature_sets: SignatureSet) -> MinHashMatrix:
+def min_hash(signature_set: DenseSignatureSet) -> MinHashMatrix:
     """
-    Takes a matrix of size M x N, where M is the total number of unique shingles in all documents,
-    and N is the total number of documents. Each row i is the signature set of a given shingle, and
-    each column j is a document.
+    Takes a dense signature set and simulates permutations using random hash functions
+    to create a minHash signature matrix.
+
+    The hash function is of the form
+    ```
+    h(x) = (ax + b) % p
+    ```
+    Where `a` and `b` are random integers < N and `p` is the next probable prime number > N, where N is the total number of
+    unique shingles in all documents.
+
+    The next probable prime number is found using the Miller-Rabin test.
 
     Global Parameters:
         permutations: int
             The number of permutations to simulate.
 
     Arguments:
-        docs_signature_sets: SignatureSet
-            A matrix of size M x N, where M is the total number of unique shingles
-            in all documents, and N is the total number of documents. Each row i is the signature
-            set of a given shingle, and each column j is a document.
+        signature_set: DenseSignatureSet
+            A list of length N, where each element i is an array of indices of shingles that appear
+            in document i.
 
     Returns:
         MinHashMatrix
@@ -245,17 +324,50 @@ def min_hash(docs_signature_sets: SignatureSet) -> MinHashMatrix:
             Each item (i, j) is the index of of the first shingle, i, that appears in document, j,
             for a given permutation.
     """
+    rng = np.random.default_rng(seed=42)
+
     number_of_permutations = parameters_dictionary["permutations"]
 
     min_hash_signatures: MinHashMatrix = np.empty(
-        shape=(number_of_permutations, docs_signature_sets.shape[1]), dtype=np.int64
+        shape=(number_of_permutations, len(document_list)), dtype=np.int64
     )
 
-    rng = np.random.default_rng(seed=42)
+    # generate unique coefficients for each permutation
+    coefficients = rng.choice(
+        np.arange(total_shingles), size=(number_of_permutations, 2), replace=False
+    )
+
+    # find the next prime number > N
+    if total_shingles % 2 == 0:
+        prime = next_prime(total_shingles + 1)
+    else:
+        prime = next_prime(total_shingles)
+
+    def universal_hash(x: npt.NDArray[np.intp], p: int, a: int, b: int) -> IntArray:
+        """
+        Universal Hash Function
+
+        Arugments:
+            x: npt.NDArray[np.intp]
+                The array of indices of shingles that appear in a document.
+            p: int
+                The next probable prime number > N, where N is the total number of unique shingles in all documents.
+            a: int
+                A random integer < N, where N is the total number of unique shingles in all documents.
+            b: int
+                A random integer < N, where N is the total number of unique shingles in all documents.
+
+        Returns:
+            IntArray
+                The hash value of the array of indices of shingles that appear in a document.
+        """
+        return (a * x + b) % p
+
     for i in range(number_of_permutations):
-        permutation = rng.permutation(docs_signature_sets)
-        signature: MinHashMatrix = np.argmax(permutation, axis=0)
-        min_hash_signatures[i, :] = signature
+        for j, rows in enumerate(signature_set):
+            min_hash_signatures[i, j] = np.min(
+                universal_hash(rows, prime, *coefficients[i])
+            )
 
     return min_hash_signatures
 
@@ -318,11 +430,11 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
             func1d=hash, axis=0, arr=band, number_of_buckets=number_of_buckets
         )
 
-        bucket_dict: dict[np.int64, list[int]] = defaultdict(list)
+        bucket_dict: dict[np.int64, set[int]] = defaultdict(set)
 
         for column_index in range(number_of_columns):
             bucket: np.int64 = buckets[column_index]
-            bucket_dict[bucket].append(column_index)
+            bucket_dict[bucket].add(column_index)
 
         for column_indices in bucket_dict.values():
             if len(column_indices) > 1:
@@ -374,7 +486,9 @@ def candidates_similarities(
 
         similarity = (column_1 == column_2).sum() / number_of_rows
 
-        triangle_index = get_triangle_index(column_index_1, column_index_2, len(document_list))
+        triangle_index = get_triangle_index(
+            column_index_1, column_index_2, len(document_list)
+        )
         similarity_matrix[triangle_index] = similarity
 
     return similarity_matrix
