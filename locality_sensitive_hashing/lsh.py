@@ -540,7 +540,7 @@ def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[str
 
     Returns:
         list[tuple[str, str]]
-            A list of tuple of document pairs of more than `t`% similarity.
+            A list of document pairs of more than `t`% similarity.
     """
     threshold = parameters_dictionary["t"]
 
