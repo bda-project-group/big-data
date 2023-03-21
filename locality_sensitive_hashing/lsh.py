@@ -40,16 +40,16 @@ import configparser  # for reading the parameters file
 import os  # for reading the input data
 import sys  # for system errors and printouts
 import time  # for timing
-from collections import defaultdict
-from itertools import combinations
+from collections import defaultdict  # for creating a dictionary with default values
+from itertools import combinations  # for finding all combinations of a list
 from pathlib import Path  # for paths of files
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict  # for type annotations
 import math
-import random
+import random  # for finding the next prime number
 
 
-import numpy as np
-import numpy.typing as npt
+import numpy as np  # for matrix operations
+import numpy.typing as npt  # for type annotations
 
 """
 To improve readability and static code analysis, we've defined a set of type aliases.
