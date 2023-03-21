@@ -563,8 +563,11 @@ def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[int
         indices_above_threshold, shape=(len(document_list), len(document_list))
     )
 
+    documents_i = np.char.mod("%03d", row).flatten().tolist()
+    documents_j = np.char.mod("%03d", column).flatten().tolist()
+
     # Convert the row and column indices to document pairs
-    document_pairs = list(zip(row.flatten().tolist(), column.flatten().tolist()))
+    document_pairs = list(zip(documents_i, documents_j))
     return document_pairs
 
 
