@@ -502,17 +502,13 @@ def candidates_similarities(
 
     Returns:
         LSHSimilarityMatrix
-            A vector of size `L choose 2` where `L` is the number of documents. Each item is the
-            similarity of a pair of candidate documents. The similarity is the number of rows in
-            the min-hash matrix where the two documents have the same signature, divided by the
-            total number of rows in the min-hash matrix.
-
-            The vector is stored in a lower triangular matrix, where the index of each item is
-            calculated using the `get_triangle_index` function.
+            A matrix of size `L x L` where `L` is the number of documents. Each item (i, j) is the
+            similarity of a pair of candidate documents. The matrix is the return value of the
+            `candidates_similarities` function. The matrix is stored as an upper triangular matrix.
     """
 
     similarity_matrix: LSHSimilarityMatrix = np.zeros(
-        shape=(math.comb(len(document_list), 2)), dtype=np.float64
+        shape=(len(document_list), len(document_list)), dtype=np.float64
     )
 
     for column_index_1, column_index_2 in candidate_docs:
@@ -522,17 +518,14 @@ def candidates_similarities(
 
         similarity = (column_1 == column_2).sum() / number_of_rows
 
-        triangle_index = get_triangle_index(
-            column_index_1, column_index_2, len(document_list)
-        )
-        similarity_matrix[triangle_index] = similarity
+        similarity_matrix[column_index_1, column_index_2] = similarity
 
-    return similarity_matrix
+    return np.triu(similarity_matrix)
 
 
 # METHOD FOR TASK 6
 # Returns the document pairs of over t% similarity
-def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[int, int]]:
+def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[str, str]]:
     """
     Finds the document pairs that are above the threshold similarity.
 
@@ -542,14 +535,13 @@ def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[int
 
     Arguments:
         lsh_similarity_matrix: LSHSimilarityMatrix
-            A vector of size `L choose 2` where `L` is the number of documents. Each item is the
-            similarity of a pair of candidate documents. The vector is stored in a lower triangular
-            matrix, where the index of each item is calculated using the `get_triangle_index`
-            function. This is the return value of the `candidates_similarities` function.
+            A matrix of size `L x L` where `L` is the number of documents. Each item (i, j) is the
+            similarity of a pair of candidate documents. The matrix is the return value of the
+            `candidates_similarities` function. The matrix is stored as an upper triangular matrix.
 
     Returns:
-        list[tuple[int, int]]
-            A list of document index pairs that are above the threshold similarity.
+        list[tuple[str, str]]
+            A list of tuple of document pairs of more than `t`% similarity.
     """
     threshold = parameters_dictionary["t"]
 
@@ -557,17 +549,11 @@ def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[int
     # threshold
     indices_above_threshold = np.argwhere(lsh_similarity_matrix >= threshold)
 
-    # Find the row and column indices of the similarity matrix from the
-    # triangle indices
-    row, column = np.unravel_index(
-        indices_above_threshold, shape=(len(document_list), len(document_list))
+    documents: npt.NDArray[np.str_] = np.char.mod(
+        "%03d.txt", indices_above_threshold + 1
     )
+    document_pairs: list[tuple[str, str]] = list(zip(documents[:, 0], documents[:, 1]))
 
-    documents_i = np.char.mod("%03d", row).flatten().tolist()
-    documents_j = np.char.mod("%03d", column).flatten().tolist()
-
-    # Convert the row and column indices to document pairs
-    document_pairs = list(zip(documents_i, documents_j))
     return document_pairs
 
 
@@ -591,10 +577,9 @@ def count_false_neg_and_pos(
 
     Arguments:
         lsh_similarity_matrix: LSHSimilarityMatrix
-            A vector of size `L choose 2` where `L` is the number of documents. Each item is the
-            similarity of a pair of candidate documents. The vector is stored in a lower triangular
-            matrix, where the index of each item is calculated using the `get_triangle_index`
-            function. This is the return value of the `candidates_similarities` function.
+            A matrix of size `L x L` where `L` is the number of documents. Each item (i, j) is the
+            similarity of a pair of candidate documents. The matrix is the return value of the
+            `candidates_similarities` function. The matrix is stored as an upper triangular matrix.
 
         naive_similarity_matrix: list[float]
             A vector of size `L choose 2` where `L` is the number of documents. Each item is the
@@ -607,19 +592,14 @@ def count_false_neg_and_pos(
             A tuple of two integers: the number of false negatives and the number of false
             positives.
     """
-
-    false_negatives = 0
-    false_positives = 0
-
     threshold = parameters_dictionary["t"]
 
-    for i, naive_similarity in enumerate(naive_similarity_matrix):
-        lsh_similarity = lsh_similarity_matrix[i]
+    naive_vector = np.array(naive_similarity_matrix)
+    naive_above_threshold = (naive_vector >= threshold).sum()
+    lsh_above_threshold = (lsh_similarity_matrix >= threshold).sum()
 
-        if naive_similarity >= threshold and lsh_similarity < threshold:
-            false_negatives += 1
-        elif naive_similarity < threshold and lsh_similarity >= threshold:
-            false_positives += 1
+    false_positives = max(lsh_above_threshold - naive_above_threshold, 0)
+    false_negatives = max(naive_above_threshold - lsh_above_threshold, 0)
 
     return false_negatives, false_positives
 
