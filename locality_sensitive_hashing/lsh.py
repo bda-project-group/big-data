@@ -204,6 +204,7 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
     for shingles in k_shingles:
         unique_shingles.update(shingles)
 
+    print("Total shingles:", len(unique_shingles))
     signature_set: SignatureSet = np.zeros(
         shape=[len(unique_shingles), len(k_shingles)], dtype=np.bool_
     )
@@ -253,9 +254,16 @@ def min_hash(docs_signature_sets: SignatureSet) -> MinHashMatrix:
 
     rng = np.random.default_rng(seed=42)
     for i in range(number_of_permutations):
+        start = time.time()
         permutation = rng.permutation(docs_signature_sets)
+        permutation_time = time.time()
         signature: MinHashMatrix = np.argmax(permutation, axis=0)
+        signature_time = time.time()
         min_hash_signatures[i, :] = signature
+        permutation_complete_time = time.time()
+        print(
+            f"Permutation {i} took:\n{permutation_time - start} permutation\n{signature_time - permutation_time} signature\n{permutation_complete_time - start} total\n"
+        )
 
     return min_hash_signatures
 
