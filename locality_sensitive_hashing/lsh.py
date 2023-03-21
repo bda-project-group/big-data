@@ -544,8 +544,7 @@ def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[str
     """
     threshold = parameters_dictionary["t"]
 
-    # Find the triangle indices of the similarity matrix that are above the
-    # threshold
+    # Find the where the similarity is above the threshold in the upper triangular matrix
     indices_above_threshold = np.argwhere(lsh_similarity_matrix >= threshold)
 
     documents: npt.NDArray[np.str_] = np.char.mod(
