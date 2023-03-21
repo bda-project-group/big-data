@@ -44,7 +44,6 @@ from collections import defaultdict  # for creating a dictionary with default va
 from itertools import combinations  # for finding all combinations of a list
 from pathlib import Path  # for paths of files
 from typing import Literal, TypedDict  # for type annotations
-import math
 import random  # for finding the next prime number
 
 
