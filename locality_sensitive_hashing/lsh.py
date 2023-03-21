@@ -315,7 +315,7 @@ def min_hash(signature_set: DenseSignatureSet) -> MinHashMatrix:
             The number of permutations to simulate.
 
     Arguments:
-        DenseSignatureSet
+        signature_set: DenseSignatureSet
             A list of length N, where each element i is an array of indices of shingles that appear
             in document i.
 
