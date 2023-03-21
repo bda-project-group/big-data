@@ -32,7 +32,7 @@ KShingles = list[set[str]]
 Candidates = set[tuple[int, int]]
 IntArray = npt.NDArray[np.int64]
 MinHashMatrix = IntArray
-SignatureSet = IntArray
+SignatureSet = npt.NDArray[np.bool_]
 LSHSimilarityMatrix = npt.NDArray[np.float64]
 
 
@@ -205,7 +205,7 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
         unique_shingles.update(shingles)
 
     signature_set: SignatureSet = np.zeros(
-        shape=[len(unique_shingles), len(k_shingles)], dtype=np.int64
+        shape=[len(unique_shingles), len(k_shingles)], dtype=np.bool_
     )
 
     # Sets have no ordering guarantee, so we need to sort them
