@@ -28,11 +28,12 @@ class Parameters(TypedDict):
     t: float
 
 
-KShingles = list[set[str]]
+KShingles = list[npt.NDArray[np.str_]]
 Candidates = set[tuple[int, int]]
 IntArray = npt.NDArray[np.int64]
 MinHashMatrix = IntArray
 SignatureSet = npt.NDArray[np.bool_]
+DenseSignatureSet = dict[int, npt.NDArray[np.intp]]
 LSHSimilarityMatrix = npt.NDArray[np.float64]
 
 
@@ -164,13 +165,13 @@ def k_shingles() -> KShingles:
         for i in range(len(doc) - k + 1):
             shingles.add(doc[i : i + k])
 
-        docs_k_shingles.append(shingles)
+        docs_k_shingles.append(np.array(list(shingles)))
     return docs_k_shingles
 
 
 # METHOD FOR TASK 2
 # Creates a signatures set of the documents from the k-shingles list
-def signature_set(k_shingles: KShingles) -> SignatureSet:
+def signature_set(k_shingles: KShingles) -> DenseSignatureSet:
     """
     Arguments:
         k_shingles: KShingles
@@ -205,25 +206,22 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
         unique_shingles.update(shingles)
 
     print("Total shingles:", len(unique_shingles))
-    signature_set: SignatureSet = np.zeros(
-        shape=[len(unique_shingles), len(k_shingles)], dtype=np.bool_
-    )
+    dense_signature_set: dict[int, npt.NDArray[np.intp]] = dict()
 
     # Sets have no ordering guarantee, so we need to sort them
     # for the signature set to be consistent and reproducable.
-    ordered_shingles = sorted(list(unique_shingles))
+    ordered_shingles = np.sort(np.array(list(unique_shingles)))
+    for i, document in enumerate(k_shingles):
+        mask = np.isin(ordered_shingles, document, assume_unique=True)
+        indices = np.nonzero(mask)[0]
+        dense_signature_set[i] = indices
 
-    for i, shingle in enumerate(ordered_shingles):
-        for j, document in enumerate(k_shingles):
-            if shingle in document:
-                signature_set[i, j] = 1
-
-    return signature_set
+    return dense_signature_set
 
 
 # METHOD FOR TASK 3
 # Creates the minHash signatures after simulation of permutations
-def min_hash(docs_signature_sets: SignatureSet) -> MinHashMatrix:
+def min_hash(docs_signature_sets: DenseSignatureSet) -> MinHashMatrix:
     """
     Takes a matrix of size M x N, where M is the total number of unique shingles in all documents,
     and N is the total number of documents. Each row i is the signature set of a given shingle, and
@@ -249,16 +247,21 @@ def min_hash(docs_signature_sets: SignatureSet) -> MinHashMatrix:
     number_of_permutations = parameters_dictionary["permutations"]
 
     min_hash_signatures: MinHashMatrix = np.empty(
-        shape=(number_of_permutations, docs_signature_sets.shape[1]), dtype=np.int64
+        shape=(number_of_permutations, len(document_list)), dtype=np.int64
     )
 
     rng = np.random.default_rng(seed=42)
     for i in range(number_of_permutations):
-        permutation = rng.permutation(docs_signature_sets)
-        # Index of the first non-zero element in the permutation
-        signature: MinHashMatrix = (permutation != 0).argmax(axis=0)
-        min_hash_signatures[i, :] = signature
+        for j, signatures in docs_signature_sets.items():
+            permutation: np.intp = rng.permutation(signatures)[0]
+            min_hash_signatures[i, j] = permutation
 
+        # permutation = rng.permutation(docs_signature_sets)
+        # # Index of the first non-zero element in the permutation
+        # signature: MinHashMatrix = (permutation != 0).argmax(axis=0)
+        # min_hash_signatures[i, :] = signature
+
+    print(min_hash_signatures)
     return min_hash_signatures
 
 
