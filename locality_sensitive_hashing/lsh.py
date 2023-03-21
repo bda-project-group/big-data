@@ -254,16 +254,10 @@ def min_hash(docs_signature_sets: SignatureSet) -> MinHashMatrix:
 
     rng = np.random.default_rng(seed=42)
     for i in range(number_of_permutations):
-        start = time.time()
         permutation = rng.permutation(docs_signature_sets)
-        permutation_time = time.time()
-        signature: MinHashMatrix = np.argmax(permutation, axis=0)
-        signature_time = time.time()
+        # Index of the first non-zero element in the permutation
+        signature: MinHashMatrix = (permutation != 0).argmax(axis=0)
         min_hash_signatures[i, :] = signature
-        permutation_complete_time = time.time()
-        print(
-            f"Permutation {i} took:\n{permutation_time - start} permutation\n{signature_time - permutation_time} signature\n{permutation_complete_time - start} total\n"
-        )
 
     return min_hash_signatures
 
@@ -326,11 +320,11 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
             func1d=hash, axis=0, arr=band, number_of_buckets=number_of_buckets
         )
 
-        bucket_dict: dict[np.int64, list[int]] = defaultdict(list)
+        bucket_dict: dict[np.int64, set[int]] = defaultdict(set)
 
         for column_index in range(number_of_columns):
             bucket: np.int64 = buckets[column_index]
-            bucket_dict[bucket].append(column_index)
+            bucket_dict[bucket].add(column_index)
 
         for column_indices in bucket_dict.values():
             if len(column_indices) > 1:
@@ -382,7 +376,9 @@ def candidates_similarities(
 
         similarity = (column_1 == column_2).sum() / number_of_rows
 
-        triangle_index = get_triangle_index(column_index_1, column_index_2, len(document_list))
+        triangle_index = get_triangle_index(
+            column_index_1, column_index_2, len(document_list)
+        )
         similarity_matrix[triangle_index] = similarity
 
     return similarity_matrix
