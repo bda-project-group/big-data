@@ -343,7 +343,7 @@ def min_hash(signature_set: DenseSignatureSet) -> MinHashMatrix:
     else:
         prime = next_prime(total_shingles)
 
-    def _hash(x: npt.NDArray[np.intp], p: int, a: int, b: int) -> IntArray:
+    def universal_hash(x: npt.NDArray[np.intp], p: int, a: int, b: int) -> IntArray:
         """
         Universal Hash Function
 
@@ -365,7 +365,9 @@ def min_hash(signature_set: DenseSignatureSet) -> MinHashMatrix:
 
     for i in range(number_of_permutations):
         for j, rows in enumerate(signature_set):
-            min_hash_signatures[i, j] = np.min(_hash(rows, prime, *coefficients[i]))
+            min_hash_signatures[i, j] = np.min(
+                universal_hash(rows, prime, *coefficients[i])
+            )
 
     return min_hash_signatures
 
