@@ -180,9 +180,6 @@ def miller_rabin_test(n: int, k: int = 100) -> bool:
             An odd integer > 2 to be tested for primality
         k: int
             The number of rounds of testing to perform
-        seed: int
-            The seed for the random number generator
-
     Returns:
         bool
             True if n is _probably_ prime, False if n is _definitely_ composite
@@ -218,6 +215,8 @@ def next_prime(n: int, seed=42) -> int:
     Arguments:
         n: int
             An odd integer > 2
+        seed: int
+            The seed to use for the random number generator
     """
     random.seed(seed)
 
@@ -239,7 +238,6 @@ def signature_set(k_shingles: KShingles) -> DenseSignatureSet:
     For a given list of k-shingles per document, creates a dense signature set of the documents.
     Since a boolean matrix representation is [typically sparse](http://infolab.stanford.edu/~ullman/mining/2009/similarity1.pdf),
     we will use a dense representation instead.
-
 
     Arguments:
         k_shingles: KShingles
