@@ -334,9 +334,7 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
 
     for document in k_shingles:
         # Determine which shingles appear in the document and return a boolean mask
-        mask = np.isin(ordered_shingles, document, assume_unique=True)
-        # Get the indices of the shingles that appear in the document
-        indices = np.nonzero(mask)[0]
+        indices = ordered_shingles.searchsorted(document)
         signature_set.append(indices)
 
     return signature_set
