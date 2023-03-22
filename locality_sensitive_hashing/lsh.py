@@ -246,7 +246,7 @@ def _miller_rabin_test(n: int, k: int = 100) -> bool:
             The number of rounds of testing to perform
     Returns:
         bool
-            True if n is _probably_ prime, False if n is _definitely_ composite
+            True if n is a probably prime, False if n is _definitely_ composite
     """
     s, d = 0, n - 1
     while d % 2 == 0:
