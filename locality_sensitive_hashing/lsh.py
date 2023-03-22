@@ -330,15 +330,7 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
     ]
     ```
     """
-    unique_shingles: set[str] = set()
-    for shingles in k_shingles:
-        unique_shingles.update(shingles)
-
     signature_set: SignatureSet = []
-
-    # Sets have no ordering guarantee, so we need to sort them
-    # for the signature set to be consistent and reproducable.
-    ordered_shingles = np.sort(np.array(list(unique_shingles)))
 
     for document in k_shingles:
         # Determine which shingles appear in the document and return a boolean mask
