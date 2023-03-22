@@ -1,46 +1,46 @@
 """
-This is the implementation of the Locality Sensitive Hashing algorithm for the second project in the course
-TDT4305 Big Data, spring 2023 at NTNU, by Hermann Mørkrid and Lars Waage.
+This is the implementation of the Locality Sensitive Hashing algorithm for the second project
+assignment in the course TDT4305 Big Data Architecture, spring 2023 at NTNU Trondheim, by Hermann
+Mørkrid and Lars Waage.
 
-The module consists of some skeleton code, as part of the handout for the project, prefixed by # DO NOT CHANGE THIS METHOD.
+The module consists of some skeleton code, as part of the handout for the project, prefixed by
+# DO NOT CHANGE THIS METHOD.
 
-The project consists of 6 implementation tasks, which are marked with # TASK 1, # TASK 2, etc. in the code.
+The project consists of 6 implemented tasks, which are marked with # TASK 1, # TASK 2, etc. in the
+code.
 
-`k_singles` creates the k-shingles of each document and returns a list of them. The shingles are based around
-characters, rather than words, as it was implemented prior to the updates to the project description.
+`k_singles` creates the k-shingles of the words in each document and returns a list of them.
 
-`signature_set` creates the signature set representation of the document shingles, stored as a list of length `N`,
-where each element `i` is a list of indices of shingles that appear in document `i`.
+`signature_set` creates the signature set representation of the document shingles, stored as a list
+of length `N`, where each element `i` is a list of indices of shingles that appear in document `i`.
 
-`_next_prime` is a helper function for the `min_hash` function, which adds utility to find the next prime number greater
-than a given integer. It is based on the Miller-Rabin primality test, which is a probabilistic test for primality.
+`_next_prime` is a helper function for the `min_hash` function, which finds the next prime number
+greater than a given integer. It is based on the Miller-Rabin primality test, which is a
+probabilistic test for primality.
 
 `_miller_rabin_test` is an implementation of the aforementioned Miller-Rabin primality test.
 
-`min_hash` creates the min-hash representation of the document shingles by simulating permutations of the signature
-matrix using a universal hash function of the form `h(x) = (ax + b) % p % r`, where `a` and `b` are random integers
-between 0 and `N`, `p` is the next prime number greater than `N`, where `N` is the total number of unique shingles.
+`min_hash` creates the min-hash representation of the document shingles by simulating permutations
+of the signature matrix using a universal hash function of the form `h(x) = (ax + b) % p % r`, where
+`a` and `b` are random integers between 0 and `N`, `p` is the next prime number greater than `N`,
+where `N` is the total number of unique shingles.
 
+`lsh` finds the candidate pairs of documents that are similar, based on the min-hash matrix and the
+number of bands and buckets.
 
-`_hash` is a helper function to hash each band of the min-hash matrix into a bucket.
-
-`lsh` finds the candidate pairs of documents that are similar, based on the min-hash matrix and the number of bands
-and buckets.
-
-`candidates_similarity` calculates the similarity of the candidate pairs of documents, and returns a similarity matrix
-of the documents.
+`candidates_similarity` calculates the similarity of the candidate pairs of documents, and returns a
+similarity matrix of the documents.
 
 `return_results` returns the resulting candidate pairs of documents.
 
-`count_false_neg_and_pos` counts the number of false negatives and positives in the results compared to the naive 
-similarity matrix.
+`count_false_neg_and_pos` counts the number of false negatives and positives in the results
+compared to the naive similarity matrix.
 """
 
 import configparser  # for reading the parameters file
 import os  # for reading the input data
 import sys  # for system errors and printouts
 import time  # for timing
-from collections import defaultdict  # for creating a dictionary with default values
 from itertools import combinations  # for finding all combinations of a list
 from pathlib import Path  # for paths of files
 from typing import Literal, TypedDict  # for type annotations
@@ -169,8 +169,7 @@ def naive():
 ordered_shingles: npt.NDArray[np.int64] = np.array([])
 
 
-# METHOD FOR TASK 1
-# Creates the k-Shingles of each document and returns a list of them
+# TASK 1
 def k_shingles() -> KShingles:
     """
     Creates the k-shingles of each document based on words. The shingles are hashed using the
@@ -185,9 +184,9 @@ def k_shingles() -> KShingles:
             A dictionary of length M, mapping document IDs to documents of length N_i:
     ```
     {
-        1: "The quick brown fox", # document 1
-        2: "Jumps over the", # document 2
-        3: "The quick lazy dog", # document 3
+        1: "The quick brown fox",   # document 1
+        2: "Jumps over the",        # document 2
+        3: "The quick lazy dog",    # document 3
     }
     ```
     Returns an array of length M, where each element i is an array of hashed shingles in document i.
@@ -195,9 +194,9 @@ def k_shingles() -> KShingles:
     For example, with k=2:
     ```
     [
-        {"The quick", "quick brown", "brown fox"}, # document 1
-        {"Jumps over", "over the"}, # document 2
-        {"The quick", "quick lazy", "lazy dog"}, # document 3
+        {"The quick", "quick brown", "brown fox"},  # document 1
+        {"Jumps over", "over the"},                 # document 2
+        {"The quick", "quick lazy", "lazy dog"},    # document 3
     ]
 
     Returns:
@@ -235,10 +234,62 @@ def k_shingles() -> KShingles:
     return docs_k_shingles
 
 
+# TASK 2
+def signature_set(k_shingles: KShingles) -> SignatureSet:
+    """
+    For a given list of k-shingles per document, creates a signature set of the documents.
+    Since a boolean matrix representation is
+    [typically sparse](http://infolab.stanford.edu/~ullman/mining/2009/similarity1.pdf),
+    the signature set is represented as a list of length N, where each element i is an array of
+    indices of shingles that appear in document i.
+
+    Arguments:
+        k_shingles: KShingles
+            Takes an input array of length N, where each element j is a set of shingles that appears
+            in document j.
+    ```
+    [
+        {shingle1, shingle2, shingle3}, # document1
+        {shingle1, shingle2, shingle3}, # document2
+        {shingle3, shingle4, shingle5}, # document3
+    ]
+    ```
+
+    Which has the unique shingles:
+    ```
+    [shingle1, shingle2, shingle3, shingle4, shingle5]
+    ```
+
+    Returns:
+        SignatureSet
+            A list of length N, where each element i is an array of indices of shingles that appear
+            in document i.
+    ```
+    [
+        [0, 1, 2] # document 1
+        [0, 1, 2] # document 2
+        [2, 3, 4] # document 3
+    ]
+    ```
+    """
+    signature_set: SignatureSet = []
+
+    for document in k_shingles:
+        # We can exploit the fact that the shingles are sorted and use
+        # np.searchsorted to find the indices of the shingles that appear for each document.
+        # This is much faster than storing the boolean matrix.
+        # [np.searchsorted docs](https://numpy.org/doc/stable/reference/generated/numpy.searchsorted.html # noqa
+        indices = ordered_shingles.searchsorted(document)
+        signature_set.append(indices)
+
+    return signature_set
+
+
 def _miller_rabin_test(n: int, k: int = 100) -> bool:
     """
     Miller-Rabin test
-    Derived from pseudocode in [Miller-Rabin test](https://en.wikipedia.org/wiki/Miller-Rabin_primality_test).
+    Derived from pseudocode in
+    [Miller-Rabin test](https://en.wikipedia.org/wiki/Miller-Rabin_primality_test).
 
     Arguments:
         n: int
@@ -293,70 +344,18 @@ def _next_prime(n: int, seed=42) -> int:
     return n
 
 
-# METHOD FOR TASK 2
-# Creates a signatures set of the documents from the k-shingles list
-def signature_set(k_shingles: KShingles) -> SignatureSet:
-    """
-    For a given list of k-shingles per document, creates a signature set of the documents.
-    Since a boolean matrix representation is [typically sparse](http://infolab.stanford.edu/~ullman/mining/2009/similarity1.pdf),
-    the signature set is represented as a list of length N, where each element i is an array of
-    indices of shingles that appear in document i.
-
-    Arguments:
-        k_shingles: KShingles
-            Takes an input array of length N, where each element j is a set of shingles that appears
-            in document j.
-    ```
-    [
-        {shingle1, shingle2, shingle3}, # document1
-        {shingle1, shingle2, shingle3}, # document2
-        {shingle3, shingle4, shingle5}, # document3
-    ]
-    ```
-
-    Which has the unique shingles:
-    ```
-    [shingle1, shingle2, shingle3, shingle4, shingle5]
-    ```
-
-    Returns:
-        SignatureSet
-            A list of length N, where each element i is an array of indices of shingles that appear
-            in document i.
-    ```
-    [
-        [0, 1, 2] # document 1
-        [0, 1, 2] # document 2
-        [2, 3, 4] # document 3
-    ]
-    ```
-    """
-    signature_set: SignatureSet = []
-
-    for document in k_shingles:
-        # We can exploit the fact that the shingles are sorted and use
-        # np.searchsorted to find the indices of the shingles that appear for each document.
-        # This is much faster than storing the boolean matrix.
-        # [np.searchsorted docs](https://numpy.org/doc/stable/reference/generated/numpy.searchsorted.html
-        indices = ordered_shingles.searchsorted(document)
-        signature_set.append(indices)
-
-    return signature_set
-
-
-# METHOD FOR TASK 3
-# Creates the minHash signatures after simulation of permutations
+# TASK 3
 def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
     """
-    Takes a signature set, the output from `signature_set`, and simulates permutations using random hash functions
-    to create a minHash signature matrix.
+    Takes a signature set (the output from `signature_set`) and simulates permutations using random
+    hash functions to create a minHash signature matrix.
 
     The hash function is of the form
     ```
     h(x) = (ax + b) % p
     ```
-    Where `a` and `b` are random integers < N and `p` is the next probable prime number > N, where N is the total number of
-    unique shingles in all documents.
+    Where `a` and `b` are random integers < N and `p` is the next probable prime number > N, where
+    N is the total number of unique shingles in all documents.
 
     The next probable prime number is found using the Miller-Rabin test.
 
@@ -396,17 +395,16 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
     else:
         prime = _next_prime(total_shingles)
 
-    def _hash(
-        x: npt.NDArray[np.intp], p: int, a: IntArray, b: IntArray
-    ) -> IntArray:
+    def _hash(x: npt.NDArray[np.intp], p: int, a: IntArray, b: IntArray) -> IntArray:
         """
         Vectorized hash function for minHash signatures.
 
-        Arugments:
+        Arguments:
             x: npt.NDArray[np.intp]
                 The array of indices of shingles that appear in a document.
             p: int
-                The next probable prime number > N, where N is the total number of unique shingles in all documents.
+                The next probable prime number > N, where N is the total number of unique shingles
+                in all documents.
             a: IntArray
                 An array of length P of random integers < N, where N is the total number of unique
                 shingles in all documents, and P is the number of permutations/hash functions.
@@ -429,8 +427,7 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
     return min_hash_signatures
 
 
-# METHOD FOR TASK 4
-# Hashes the MinHash Signature Matrix into buckets and find candidate similar documents
+# TASK 4
 def lsh(m_matrix: MinHashMatrix) -> Candidates:
     """
     For a given P x N matrix, partitions into P / `r` bands, and hashes each column in each band
@@ -477,8 +474,7 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
     return np.array(list(candidates), dtype=np.intp)
 
 
-# METHOD FOR TASK 5
-# Calculates the similarities of the candidate documents
+# TASK 5
 def candidates_similarities(
     candidate_docs: Candidates, min_hash_matrix: MinHashMatrix
 ) -> LSHSimilarityMatrix:
@@ -512,22 +508,26 @@ def candidates_similarities(
     # Calculate the similarity of each pair of candidate documents
     # Index based on the candidate documents
     candidates = min_hash_matrix[:, candidate_docs]
+
     # First document in the pair, as a matrix
     first_document = candidates[:, :, 0]
+
     # Second document in the pair, as a matrix
     second_document = candidates[:, :, 1]
+
     # Compare the two documents for all combinations
     equality_comparison = first_document == second_document
+
     # Calculate the similarity for all combinations
     similarity = equality_comparison.sum(axis=0) / equality_comparison.shape[0]
 
     # Store the similarity in the similarity matrix
     similarity_matrix[candidate_docs[:, 0], candidate_docs[:, 1]] = similarity
+
     return np.triu(similarity_matrix)
 
 
-# METHOD FOR TASK 6
-# Returns the document pairs of over t% similarity
+# TASK 6
 def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[str, str]]:
     """
     Finds the document pairs that are above the threshold similarity.
@@ -551,15 +551,13 @@ def return_results(lsh_similarity_matrix: LSHSimilarityMatrix) -> list[tuple[str
     # Find the where the similarity is above the threshold in the upper triangular matrix
     indices_above_threshold = np.argwhere(lsh_similarity_matrix >= threshold)
 
-    documents: npt.NDArray[np.str_] = np.char.mod(
-        "%03d.txt", indices_above_threshold + 1
-    )
+    documents: npt.NDArray[np.str_] = np.char.mod("%03d.txt", indices_above_threshold + 1)
     document_pairs: list[tuple[str, str]] = list(zip(documents[:, 0], documents[:, 1]))
 
     return document_pairs
 
 
-# METHOD FOR TASK 6
+# TASK 6
 def count_false_neg_and_pos(
     lsh_similarity_matrix: LSHSimilarityMatrix,
     naive_similarity_matrix: list[float],
