@@ -468,15 +468,18 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
     def _hash(a: IntArray, number_of_buckets: int) -> int:
         return (
             int.from_bytes(
-                hashlib.sha256(a.tobytes()).digest()[:4], byteorder="big", signed=True
+                hashlib.sha256(a.tobytes()).digest()[:4],
+                byteorder="big",
+                signed=True,
             )
             % number_of_buckets
         )
 
     bands = np.split(m_matrix, number_of_bands, axis=0)
     for band in bands:
-        print(np.apply_along_axis(func1d=_hash, axis=1, arr=band))
-        buckets = np.sum(band, axis=0) % number_of_buckets
+        buckets = np.apply_along_axis(
+            func1d=_hash, axis=0, arr=band, number_of_buckets=number_of_buckets
+        )
         unique, counts = np.unique(buckets, return_counts=True)
         for bucket in unique[counts > 1]:
             candidates.update(combinations(np.nonzero(buckets == bucket)[0], r=2))
