@@ -595,9 +595,8 @@ def count_false_neg_and_pos(
 
     naive_vector = np.array(naive_similarity_matrix)
 
-    false_positives = np.logical_and(
-        lsh_similarity_matrix < threshold, lsh_similarity_matrix > -1
-    ).sum()
+    candidate_pairs = lsh_similarity_matrix > -1
+    false_positives = (lsh_similarity_matrix[candidate_pairs] < threshold).sum()
 
     # We reshape the LSH matrix to a triangular vector so that
     # the indices match the naive vector
