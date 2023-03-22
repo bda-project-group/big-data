@@ -222,6 +222,7 @@ def k_shingles() -> KShingles:
 
     for document in document_list.values():
         words = document.split()
+        # Create the hash values of the shingles for the current document.
         shingles: set[int] = set(
             _hash(" ".join(words[i : i + k])) for i in range(len(words) - k + 1)
         )
@@ -333,7 +334,10 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
     signature_set: SignatureSet = []
 
     for document in k_shingles:
-        # Determine which shingles appear in the document and return a boolean mask
+        # We can exploit the fact that the shingles are sorted and use
+        # np.searchsorted to find the indices of the shingles that appear for each document.
+        # This is much faster than storing the boolean matrix.
+        # [np.searchsorted docs](https://numpy.org/doc/stable/reference/generated/numpy.searchsorted.html
         indices = ordered_shingles.searchsorted(document)
         signature_set.append(indices)
 
