@@ -67,7 +67,7 @@ class Parameters(TypedDict):
 
 
 KShingles = list[npt.NDArray[np.int64]]
-Candidates = set[tuple[int, int]]
+Candidates = npt.NDArray[np.intp]
 IntArray = npt.NDArray[np.int64]
 MinHashMatrix = IntArray
 SignatureSet = list[npt.NDArray[np.intp]]
@@ -472,7 +472,7 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
 
     # List of candidate pairs of document signatures for checking similarity
     # Stored as pairs of column indices in the signature matrix
-    candidates: Candidates = set()
+    candidates: set[tuple[str, str]] = set()
 
     bands = np.split(m_matrix, number_of_bands, axis=0)
     for band in bands:
@@ -481,7 +481,7 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
         for bucket in unique[counts > 1]:
             candidates.update(combinations(np.nonzero(buckets == bucket)[0], r=2))
 
-    return candidates
+    return np.array(list(candidates), dtype=np.intp)
 
 
 # METHOD FOR TASK 5
@@ -516,15 +516,13 @@ def candidates_similarities(
         shape=(len(document_list), len(document_list)), dtype=np.float64
     )
 
-    for column_index_1, column_index_2 in candidate_docs:
-        column_1 = min_hash_matrix[:, column_index_1]
-        column_2 = min_hash_matrix[:, column_index_2]
-        number_of_rows = min_hash_matrix.shape[0]
+    candidates = min_hash_matrix[:, candidate_docs]
+    left_document = candidates[:, :, 0]
+    right_document = candidates[:, :, 1]
+    equality_comparison = left_document == right_document
+    similarity = equality_comparison.sum(axis=0) / equality_comparison.shape[0]
 
-        similarity = (column_1 == column_2).sum() / number_of_rows
-
-        similarity_matrix[column_index_1, column_index_2] = similarity
-
+    similarity_matrix[candidate_docs[:, 0], candidate_docs[:, 1]] = similarity
     return np.triu(similarity_matrix)
 
 
