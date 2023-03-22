@@ -516,12 +516,19 @@ def candidates_similarities(
         shape=(len(document_list), len(document_list)), dtype=np.float64
     )
 
+    # Calculate the similarity of each pair of candidate documents
+    # Index based on the candidate documents
     candidates = min_hash_matrix[:, candidate_docs]
-    left_document = candidates[:, :, 0]
-    right_document = candidates[:, :, 1]
-    equality_comparison = left_document == right_document
+    # First document in the pair, as a matrix
+    first_document = candidates[:, :, 0]
+    # Second document in the pair, as a matrix
+    second_document = candidates[:, :, 1]
+    # Compare the two documents for all combinations
+    equality_comparison = first_document == second_document
+    # Calculate the similarity for all combinations
     similarity = equality_comparison.sum(axis=0) / equality_comparison.shape[0]
 
+    # Store the similarity in the similarity matrix
     similarity_matrix[candidate_docs[:, 0], candidate_docs[:, 1]] = similarity
     return np.triu(similarity_matrix)
 
