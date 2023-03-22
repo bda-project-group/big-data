@@ -469,31 +469,17 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
     rows = parameters_dictionary["r"]
     number_of_buckets = parameters_dictionary["buckets"]
     number_of_bands = int(m_matrix.shape[0] / rows)
-    number_of_columns = m_matrix.shape[1]
 
     # List of candidate pairs of document signatures for checking similarity
     # Stored as pairs of column indices in the signature matrix
     candidates: Candidates = set()
 
-    for band_index in range(number_of_bands):
-        # Offset for the rows in the current band
-        offset = band_index * rows
-        band = m_matrix[offset : offset + rows, :]
-
-        # Hash each column in the band to a bucket
-        buckets = np.apply_along_axis(
-            func1d=_hash, axis=0, arr=band, number_of_buckets=number_of_buckets
-        )
-
-        bucket_dict: dict[np.int64, set[int]] = defaultdict(set)
-
-        for column_index in range(number_of_columns):
-            bucket: np.int64 = buckets[column_index]
-            bucket_dict[bucket].add(column_index)
-
-        for column_indices in bucket_dict.values():
-            if len(column_indices) > 1:
-                candidates = candidates.union(combinations(column_indices, r=2))
+    bands = np.split(m_matrix, number_of_bands, axis=0)
+    for band in bands:
+        buckets = np.sum(band, axis=0) % number_of_buckets
+        unique, counts = np.unique(buckets, return_counts=True)
+        for bucket in unique[counts > 1]:
+            candidates.update(combinations(np.nonzero(buckets == bucket)[0], r=2))
 
     return candidates
 
