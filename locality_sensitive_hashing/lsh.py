@@ -45,6 +45,7 @@ from itertools import combinations  # for finding all combinations of a list
 from pathlib import Path  # for paths of files
 from typing import Literal, TypedDict  # for type annotations
 import random  # for finding the next prime number
+import hashlib  # for compressing the shingles into integers
 
 
 import numpy as np  # for matrix operations
@@ -65,7 +66,7 @@ class Parameters(TypedDict):
     t: float
 
 
-KShingles = list[npt.NDArray[np.str_]]
+KShingles = list[npt.NDArray[np.int64]]
 Candidates = set[tuple[int, int]]
 IntArray = npt.NDArray[np.int64]
 MinHashMatrix = IntArray
@@ -172,6 +173,9 @@ ordered_shingles: npt.NDArray[np.int64] = np.array([])
 # Creates the k-Shingles of each document and returns a list of them
 def k_shingles() -> KShingles:
     """
+    Creates the k-shingles of each document based on words. The shingles are hashed using the
+    built-in hash function to compress the long word-based shingles.
+
     Global Parameters:
         k: int
             The length of the shingles to be created.
@@ -181,36 +185,51 @@ def k_shingles() -> KShingles:
             A dictionary of length M, mapping document IDs to documents of length N_i:
     ```
     {
-        1: "abcde", # document 1
-        2: "fghij", # document 2
-        3: "klmno", # document 3
+        1: "The quick brown fox", # document 1
+        2: "Jumps over the", # document 2
+        3: "The quick lazy dog", # document 3
     }
     ```
-    Returns an array of length M, where each element i is a set of shingles of length k.
+    Returns an array of length M, where each element i is an array of hashed shingles in document i.
 
-    For example, with k=3:
+    For example, with k=2:
     ```
     [
-        {"abc", "bcd", "cde"}, # document 1
-        {"fgh", "ghi", "hij"}, # document 2
-        {"klm", "lmn", "mno"}, # document 3
+        {"The quick", "quick brown", "brown fox"}, # document 1
+        {"Jumps over", "over the"}, # document 2
+        {"The quick", "quick lazy", "lazy dog"}, # document 3
     ]
+
+    Returns:
+        docs_k_shingles: KShingles
+            An array of length M, where each element i is an array of hashed shingles in document i.
     """
     global ordered_shingles
-    unique_shingles: set[int] = set()
-
     k = parameters_dictionary["k"]
+
+    unique_shingles: set[int] = set()  # the set of all unique shingles
     docs_k_shingles: KShingles = []  # holds the k-shingles of each document
+
+    def _hash(s: str) -> int:
+        """
+        Hashes a string using SHA256 and returns the first 8 bytes as an integer.
+        """
+        return int.from_bytes(
+            hashlib.sha256(s.encode("utf-8"), usedforsecurity=False).digest()[:8],
+            byteorder="big",
+            signed=True,
+        )
 
     for document in document_list.values():
         words = document.split()
-        shingles: set[int] = set()
-        for i in range(len(words) - k + 1):
-            shingle = hash(" ".join(words[i : i + k]))
-            shingles.add(shingle)
+        shingles: set[int] = set(
+            _hash(" ".join(words[i : i + k])) for i in range(len(words) - k + 1)
+        )
         unique_shingles.update(shingles)
         docs_k_shingles.append(np.array(list(shingles), dtype=np.int64))
 
+    # We store the ordered shingles in a global variable for later use
+    # in order to avoid changing the function signatures.
     ordered_shingles = np.array(sorted(unique_shingles), dtype=np.int64)
     return docs_k_shingles
 
@@ -387,17 +406,19 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
         x: npt.NDArray[np.intp], p: int, a: IntArray, b: IntArray
     ) -> IntArray:
         """
-        Universal Hash Function
+        Vectorized hash function for minHash signatures.
 
         Arugments:
             x: npt.NDArray[np.intp]
                 The array of indices of shingles that appear in a document.
             p: int
                 The next probable prime number > N, where N is the total number of unique shingles in all documents.
-            a: int
-                A random integer < N, where N is the total number of unique shingles in all documents.
-            b: int
-                A random integer < N, where N is the total number of unique shingles in all documents.
+            a: IntArray
+                An array of length P of random integers < N, where N is the total number of unique
+                shingles in all documents, and P is the number of permutations/hash functions.
+            b: IntArray
+                An array of length P of random integers < N, where N is the total number of unique
+                shingles in all documents, and P is the number of permutations/hash functions.
 
         Returns:
             IntArray
