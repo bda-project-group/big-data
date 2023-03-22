@@ -45,6 +45,7 @@ from itertools import combinations  # for finding all combinations of a list
 from pathlib import Path  # for paths of files
 from typing import Literal, TypedDict  # for type annotations
 import random  # for finding the next prime number
+import hashlib  # for compressing the shingles into integers
 
 
 import numpy as np  # for matrix operations
@@ -65,8 +66,8 @@ class Parameters(TypedDict):
     t: float
 
 
-KShingles = list[npt.NDArray[np.str_]]
-Candidates = set[tuple[int, int]]
+KShingles = list[npt.NDArray[np.int64]]
+Candidates = npt.NDArray[np.intp]
 IntArray = npt.NDArray[np.int64]
 MinHashMatrix = IntArray
 SignatureSet = list[npt.NDArray[np.intp]]
@@ -165,10 +166,16 @@ def naive():
     return similarity_matrix
 
 
+ordered_shingles: npt.NDArray[np.int64] = np.array([])
+
+
 # METHOD FOR TASK 1
 # Creates the k-Shingles of each document and returns a list of them
 def k_shingles() -> KShingles:
     """
+    Creates the k-shingles of each document based on words. The shingles are hashed using the
+    built-in hash function to compress the long word-based shingles.
+
     Global Parameters:
         k: int
             The length of the shingles to be created.
@@ -178,30 +185,53 @@ def k_shingles() -> KShingles:
             A dictionary of length M, mapping document IDs to documents of length N_i:
     ```
     {
-        1: "abcde", # document 1
-        2: "fghij", # document 2
-        3: "klmno", # document 3
+        1: "The quick brown fox", # document 1
+        2: "Jumps over the", # document 2
+        3: "The quick lazy dog", # document 3
     }
     ```
-    Returns an array of length M, where each element i is a set of shingles of length k.
+    Returns an array of length M, where each element i is an array of hashed shingles in document i.
 
-    For example, with k=3:
+    For example, with k=2:
     ```
     [
-        {"abc", "bcd", "cde"}, # document 1
-        {"fgh", "ghi", "hij"}, # document 2
-        {"klm", "lmn", "mno"}, # document 3
+        {"The quick", "quick brown", "brown fox"}, # document 1
+        {"Jumps over", "over the"}, # document 2
+        {"The quick", "quick lazy", "lazy dog"}, # document 3
     ]
+
+    Returns:
+        docs_k_shingles: KShingles
+            An array of length M, where each element i is an array of hashed shingles in document i.
     """
+    global ordered_shingles
+    k = parameters_dictionary["k"]
+
+    unique_shingles: set[int] = set()  # the set of all unique shingles
     docs_k_shingles: KShingles = []  # holds the k-shingles of each document
 
-    for doc in document_list.values():
-        k = parameters_dictionary["k"]
-        shingles: set[str] = set()
-        for i in range(len(doc) - k + 1):
-            shingles.add(doc[i : i + k])
+    def _hash(s: str) -> int:
+        """
+        Hashes a string using SHA256 and returns the first 8 bytes as an integer.
+        """
+        return int.from_bytes(
+            hashlib.sha256(s.encode("utf-8"), usedforsecurity=False).digest()[:8],
+            byteorder="big",
+            signed=True,
+        )
 
-        docs_k_shingles.append(np.array(list(shingles)))
+    for document in document_list.values():
+        words = document.split()
+        # Create the hash values of the shingles for the current document.
+        shingles: set[int] = set(
+            _hash(" ".join(words[i : i + k])) for i in range(len(words) - k + 1)
+        )
+        unique_shingles.update(shingles)
+        docs_k_shingles.append(np.array(list(shingles), dtype=np.int64))
+
+    # We store the ordered shingles in a global variable for later use
+    # in order to avoid changing the function signatures.
+    ordered_shingles = np.array(sorted(unique_shingles), dtype=np.int64)
     return docs_k_shingles
 
 
@@ -217,7 +247,7 @@ def _miller_rabin_test(n: int, k: int = 100) -> bool:
             The number of rounds of testing to perform
     Returns:
         bool
-            True if n is _probably_ prime, False if n is _definitely_ composite
+            True if n is probable prime, False if n is _definitely_ composite
     """
     s, d = 0, n - 1
     while d % 2 == 0:
@@ -263,9 +293,6 @@ def _next_prime(n: int, seed=42) -> int:
     return n
 
 
-total_shingles: int = 0
-
-
 # METHOD FOR TASK 2
 # Creates a signatures set of the documents from the k-shingles list
 def signature_set(k_shingles: KShingles) -> SignatureSet:
@@ -304,24 +331,14 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
     ]
     ```
     """
-    unique_shingles: set[str] = set()
-    for shingles in k_shingles:
-        unique_shingles.update(shingles)
-
-    global total_shingles
-    total_shingles = len(unique_shingles)
-
     signature_set: SignatureSet = []
 
-    # Sets have no ordering guarantee, so we need to sort them
-    # for the signature set to be consistent and reproducable.
-    ordered_shingles = np.sort(np.array(list(unique_shingles)))
-
     for document in k_shingles:
-        # Determine which shingles appear in the document and return a boolean mask
-        mask = np.isin(ordered_shingles, document, assume_unique=True)
-        # Get the indices of the shingles that appear in the document
-        indices = np.nonzero(mask)[0]
+        # We can exploit the fact that the shingles are sorted and use
+        # np.searchsorted to find the indices of the shingles that appear for each document.
+        # This is much faster than storing the boolean matrix.
+        # [np.searchsorted docs](https://numpy.org/doc/stable/reference/generated/numpy.searchsorted.html
+        indices = ordered_shingles.searchsorted(document)
         signature_set.append(indices)
 
     return signature_set
@@ -367,8 +384,9 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
         shape=(number_of_permutations, len(document_list)), dtype=np.int64
     )
 
+    total_shingles = ordered_shingles.shape[0]
     # generate unique coefficients for each permutation
-    coefficients = rng.choice(
+    coefficients: IntArray = rng.choice(
         np.arange(total_shingles), size=(number_of_permutations, 2), replace=False
     )
 
@@ -378,42 +396,37 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
     else:
         prime = _next_prime(total_shingles)
 
-    def universal_hash(x: npt.NDArray[np.intp], p: int, a: int, b: int) -> IntArray:
+    def _hash(
+        x: npt.NDArray[np.intp], p: int, a: IntArray, b: IntArray
+    ) -> IntArray:
         """
-        Universal Hash Function
+        Vectorized hash function for minHash signatures.
 
         Arugments:
             x: npt.NDArray[np.intp]
                 The array of indices of shingles that appear in a document.
             p: int
                 The next probable prime number > N, where N is the total number of unique shingles in all documents.
-            a: int
-                A random integer < N, where N is the total number of unique shingles in all documents.
-            b: int
-                A random integer < N, where N is the total number of unique shingles in all documents.
+            a: IntArray
+                An array of length P of random integers < N, where N is the total number of unique
+                shingles in all documents, and P is the number of permutations/hash functions.
+            b: IntArray
+                An array of length P of random integers < N, where N is the total number of unique
+                shingles in all documents, and P is the number of permutations/hash functions.
 
         Returns:
             IntArray
                 The hash value of the array of indices of shingles that appear in a document.
         """
-        return (a * x + b) % p
+        return (a * x[:, None] + b) % p
 
-    for i in range(number_of_permutations):
-        for j, rows in enumerate(signature_set):
-            min_hash_signatures[i, j] = np.min(
-                universal_hash(rows, prime, *coefficients[i])
-            )
+    for j, rows in enumerate(signature_set):
+        min_hash_signatures[:, j] = np.min(
+            _hash(rows, prime, a=coefficients[:, 0], b=coefficients[:, 1]),
+            axis=0,
+        )
 
     return min_hash_signatures
-
-
-def _hash(band: IntArray, number_of_buckets: int) -> IntArray:
-    """
-    Generate the hash key for a given column in a band
-    it is generated by taking the sum of the column and dividing it by the number of buckets
-    """
-    hash_key = np.floor_divide(np.sum(band, axis=0), number_of_buckets)
-    return hash_key % number_of_buckets
 
 
 # METHOD FOR TASK 4
@@ -449,33 +462,19 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
     rows = parameters_dictionary["r"]
     number_of_buckets = parameters_dictionary["buckets"]
     number_of_bands = int(m_matrix.shape[0] / rows)
-    number_of_columns = m_matrix.shape[1]
 
     # List of candidate pairs of document signatures for checking similarity
     # Stored as pairs of column indices in the signature matrix
-    candidates: Candidates = set()
+    candidates: set[tuple[str, str]] = set()
 
-    for band_index in range(number_of_bands):
-        # Offset for the rows in the current band
-        offset = band_index * rows
-        band = m_matrix[offset : offset + rows, :]
+    bands = np.split(m_matrix, number_of_bands, axis=0)
+    for band in bands:
+        buckets = np.sum(band, axis=0) % number_of_buckets
+        unique, counts = np.unique(buckets, return_counts=True)
+        for bucket in unique[counts > 1]:
+            candidates.update(combinations(np.nonzero(buckets == bucket)[0], r=2))
 
-        # Hash each column in the band to a bucket
-        buckets = np.apply_along_axis(
-            func1d=_hash, axis=0, arr=band, number_of_buckets=number_of_buckets
-        )
-
-        bucket_dict: dict[np.int64, set[int]] = defaultdict(set)
-
-        for column_index in range(number_of_columns):
-            bucket: np.int64 = buckets[column_index]
-            bucket_dict[bucket].add(column_index)
-
-        for column_indices in bucket_dict.values():
-            if len(column_indices) > 1:
-                candidates = candidates.union(combinations(column_indices, r=2))
-
-    return candidates
+    return np.array(list(candidates), dtype=np.intp)
 
 
 # METHOD FOR TASK 5
@@ -510,15 +509,20 @@ def candidates_similarities(
         shape=(len(document_list), len(document_list)), dtype=np.float64
     )
 
-    for column_index_1, column_index_2 in candidate_docs:
-        column_1 = min_hash_matrix[:, column_index_1]
-        column_2 = min_hash_matrix[:, column_index_2]
-        number_of_rows = min_hash_matrix.shape[0]
+    # Calculate the similarity of each pair of candidate documents
+    # Index based on the candidate documents
+    candidates = min_hash_matrix[:, candidate_docs]
+    # First document in the pair, as a matrix
+    first_document = candidates[:, :, 0]
+    # Second document in the pair, as a matrix
+    second_document = candidates[:, :, 1]
+    # Compare the two documents for all combinations
+    equality_comparison = first_document == second_document
+    # Calculate the similarity for all combinations
+    similarity = equality_comparison.sum(axis=0) / equality_comparison.shape[0]
 
-        similarity = (column_1 == column_2).sum() / number_of_rows
-
-        similarity_matrix[column_index_1, column_index_2] = similarity
-
+    # Store the similarity in the similarity matrix
+    similarity_matrix[candidate_docs[:, 0], candidate_docs[:, 1]] = similarity
     return np.triu(similarity_matrix)
 
 
@@ -593,11 +597,22 @@ def count_false_neg_and_pos(
     threshold = parameters_dictionary["t"]
 
     naive_vector = np.array(naive_similarity_matrix)
-    naive_above_threshold = (naive_vector >= threshold).sum()
-    lsh_above_threshold = (lsh_similarity_matrix >= threshold).sum()
 
-    false_positives = max(lsh_above_threshold - naive_above_threshold, 0)
-    false_negatives = max(naive_above_threshold - lsh_above_threshold, 0)
+    # We reshape the LSH matrix to a triangular vector so that
+    # the indices match the naive vector
+    lsh_triangular_indices = np.triu_indices(len(document_list), k=1)
+    lsh_triangle_vector = lsh_similarity_matrix[lsh_triangular_indices]
+
+    # Compare the two vectors to find the false positives and negatives
+    lsh_positives = lsh_triangle_vector >= threshold
+    # The false positives are the ones that are above the threshold in the LSH vector
+    # but not in the naive vector
+    false_positives = (naive_vector[lsh_positives] < threshold).sum()
+
+    naive_positives = naive_vector >= threshold
+    # The false negatives are the ones that are above the threshold in the naive vector
+    # but not in the LSH vector
+    false_negatives = (lsh_triangle_vector[naive_positives] < threshold).sum()
 
     return false_negatives, false_positives
 
