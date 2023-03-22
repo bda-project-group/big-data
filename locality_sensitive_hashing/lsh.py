@@ -396,9 +396,7 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
     else:
         prime = _next_prime(total_shingles)
 
-    def _hash(
-        x: npt.NDArray[np.intp], p: int, a: IntArray, b: IntArray
-    ) -> IntArray:
+    def _hash(x: npt.NDArray[np.intp], p: int, a: IntArray, b: IntArray) -> IntArray:
         """
         Vectorized hash function for minHash signatures.
 
@@ -467,8 +465,17 @@ def lsh(m_matrix: MinHashMatrix) -> Candidates:
     # Stored as pairs of column indices in the signature matrix
     candidates: set[tuple[str, str]] = set()
 
+    def _hash(a: IntArray, number_of_buckets: int) -> int:
+        return (
+            int.from_bytes(
+                hashlib.sha256(a.tobytes()).digest()[:4], byteorder="big", signed=True
+            )
+            % number_of_buckets
+        )
+
     bands = np.split(m_matrix, number_of_bands, axis=0)
     for band in bands:
+        print(np.apply_along_axis(func1d=_hash, axis=1, arr=band))
         buckets = np.sum(band, axis=0) % number_of_buckets
         unique, counts = np.unique(buckets, return_counts=True)
         for bucket in unique[counts > 1]:
