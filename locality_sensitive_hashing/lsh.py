@@ -383,7 +383,9 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
     else:
         prime = _next_prime(total_shingles)
 
-    def universal_hash(x: npt.NDArray[np.intp], p: int, a: int, b: int) -> IntArray:
+    def universal_hash(
+        x: npt.NDArray[np.intp], p: int, a: IntArray, b: IntArray
+    ) -> IntArray:
         """
         Universal Hash Function
 
@@ -401,13 +403,13 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
             IntArray
                 The hash value of the array of indices of shingles that appear in a document.
         """
-        return (a * x + b) % p
+        return (a * x[:, None] + b) % p
 
-    for i in range(number_of_permutations):
-        for j, rows in enumerate(signature_set):
-            min_hash_signatures[i, j] = np.min(
-                universal_hash(rows, prime, *coefficients[i])
-            )
+    for j, rows in enumerate(signature_set):
+        min_hash_signatures[:, j] = np.min(
+            universal_hash(rows, prime, a=coefficients[:, 0], b=coefficients[:, 1]),
+            axis=0,
+        )
 
     return min_hash_signatures
 
