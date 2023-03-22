@@ -396,7 +396,7 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
     else:
         prime = _next_prime(total_shingles)
 
-    def universal_hash(
+    def _hash(
         x: npt.NDArray[np.intp], p: int, a: IntArray, b: IntArray
     ) -> IntArray:
         """
@@ -422,7 +422,7 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
 
     for j, rows in enumerate(signature_set):
         min_hash_signatures[:, j] = np.min(
-            universal_hash(rows, prime, a=coefficients[:, 0], b=coefficients[:, 1]),
+            _hash(rows, prime, a=coefficients[:, 0], b=coefficients[:, 1]),
             axis=0,
         )
 
