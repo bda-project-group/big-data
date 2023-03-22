@@ -523,8 +523,7 @@ def candidates_similarities(
 
     # Store the similarity in the similarity matrix
     similarity_matrix[candidate_docs[:, 0], candidate_docs[:, 1]] = similarity
-
-    return np.triu(similarity_matrix)
+    return similarity_matrix
 
 
 # TASK 6
@@ -596,6 +595,11 @@ def count_false_neg_and_pos(
 
     naive_vector = np.array(naive_similarity_matrix)
 
+    print(
+        "false positive:",
+        np.logical_and(lsh_similarity_matrix < threshold, lsh_similarity_matrix > 0).sum(),
+    )
+
     # We reshape the LSH matrix to a triangular vector so that
     # the indices match the naive vector
     lsh_triangular_indices = np.triu_indices(len(document_list), k=1)
@@ -603,14 +607,15 @@ def count_false_neg_and_pos(
 
     # Compare the two vectors to find the false positives and negatives
     lsh_positives = lsh_triangle_vector >= threshold
+    print(np.nonzero(lsh_positives))
     # The false positives are the ones that are above the threshold in the LSH vector
     # but not in the naive vector
-    false_positives = (naive_vector[lsh_positives] < threshold).sum()
+    false_positives = np.nonzero(naive_vector[lsh_positives] < threshold)[0].shape[0]
 
     naive_positives = naive_vector >= threshold
     # The false negatives are the ones that are above the threshold in the naive vector
     # but not in the LSH vector
-    false_negatives = (lsh_triangle_vector[naive_positives] < threshold).sum()
+    false_negatives = np.nonzero(lsh_triangle_vector[naive_positives] < threshold)[0].shape[0]
 
     return false_negatives, false_positives
 
