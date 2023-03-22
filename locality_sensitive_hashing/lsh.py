@@ -165,6 +165,9 @@ def naive():
     return similarity_matrix
 
 
+ordered_shingles: npt.NDArray[np.int64] = np.array([])
+
+
 # METHOD FOR TASK 1
 # Creates the k-Shingles of each document and returns a list of them
 def k_shingles() -> KShingles:
@@ -193,15 +196,22 @@ def k_shingles() -> KShingles:
         {"klm", "lmn", "mno"}, # document 3
     ]
     """
+    global ordered_shingles
+    unique_shingles: set[int] = set()
+
+    k = parameters_dictionary["k"]
     docs_k_shingles: KShingles = []  # holds the k-shingles of each document
 
-    for doc in document_list.values():
-        k = parameters_dictionary["k"]
-        shingles: set[str] = set()
-        for i in range(len(doc) - k + 1):
-            shingles.add(doc[i : i + k])
+    for document in document_list.values():
+        words = document.split()
+        shingles: set[int] = set()
+        for i in range(len(words) - k + 1):
+            shingle = hash(" ".join(words[i : i + k]))
+            shingles.add(shingle)
+        unique_shingles.update(shingles)
+        docs_k_shingles.append(np.array(list(shingles), dtype=np.int64))
 
-        docs_k_shingles.append(np.array(list(shingles)))
+    ordered_shingles = np.array(sorted(unique_shingles), dtype=np.int64)
     return docs_k_shingles
 
 
@@ -263,9 +273,6 @@ def _next_prime(n: int, seed=42) -> int:
     return n
 
 
-total_shingles: int = 0
-
-
 # METHOD FOR TASK 2
 # Creates a signatures set of the documents from the k-shingles list
 def signature_set(k_shingles: KShingles) -> SignatureSet:
@@ -307,9 +314,6 @@ def signature_set(k_shingles: KShingles) -> SignatureSet:
     unique_shingles: set[str] = set()
     for shingles in k_shingles:
         unique_shingles.update(shingles)
-
-    global total_shingles
-    total_shingles = len(unique_shingles)
 
     signature_set: SignatureSet = []
 
@@ -367,8 +371,9 @@ def min_hash(signature_set: SignatureSet) -> MinHashMatrix:
         shape=(number_of_permutations, len(document_list)), dtype=np.int64
     )
 
+    total_shingles = ordered_shingles.shape[0]
     # generate unique coefficients for each permutation
-    coefficients = rng.choice(
+    coefficients: IntArray = rng.choice(
         np.arange(total_shingles), size=(number_of_permutations, 2), replace=False
     )
 
