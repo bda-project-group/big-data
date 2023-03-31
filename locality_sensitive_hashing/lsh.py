@@ -38,15 +38,14 @@ compared to the naive similarity matrix.
 """
 
 import configparser  # for reading the parameters file
+import hashlib  # for compressing the shingles into integers
 import os  # for reading the input data
+import random  # for finding the next prime number
 import sys  # for system errors and printouts
 import time  # for timing
 from itertools import combinations  # for finding all combinations of a list
 from pathlib import Path  # for paths of files
-from typing import Literal, TypedDict  # for type annotations
-import random  # for finding the next prime number
-import hashlib  # for compressing the shingles into integers
-
+from typing import TypedDict  # for type annotations
 
 import numpy as np  # for matrix operations
 import numpy.typing as npt  # for type annotations
@@ -61,7 +60,7 @@ class Parameters(TypedDict):
     permutations: int
     r: int
     buckets: int
-    data: Literal["test", "bbc"] | str
+    data: str
     naive: bool
     t: float
 
