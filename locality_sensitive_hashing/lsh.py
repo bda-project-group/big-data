@@ -563,6 +563,12 @@ def count_false_neg_and_pos(
 ):
     """
     Counts the number of false positives and false negatives in the LSH similarity matrix.
+    Implements the second interpretation of the question posted in https://piazza.com/class/lcjbhskazb33nq/post/112,
+    i.e. candidate pairs from LSH whose similarity measure is > `threshold`, but the naive similarity is < `threshold`,
+    and not the interpretation of false positives in MMDS 3.4.3, page 103:
+
+        There will also be false positives - candidate pairs that are evaluated,
+        but are found not to be sufficiently similar.
 
     False positives are defined as pairs of documents that are above the similarity threshold in
     `lsh_similarity_matrix`, but not in `naive_similarity_matrix`.
@@ -595,9 +601,6 @@ def count_false_neg_and_pos(
 
     naive_vector = np.array(naive_similarity_matrix)
 
-    candidate_pairs = lsh_similarity_matrix > -1
-    false_positives = (lsh_similarity_matrix[candidate_pairs] < threshold).sum()
-
     # We reshape the LSH matrix to a triangular vector so that
     # the indices match the naive vector
     lsh_triangular_indices = np.triu_indices(len(document_list), k=1)
@@ -607,6 +610,11 @@ def count_false_neg_and_pos(
     # The false negatives are the ones that are above the threshold in the naive vector
     # but not in the LSH vector
     false_negatives = (lsh_triangle_vector[naive_positives] == -1).sum()
+
+    lsh_positives = lsh_triangle_vector >= threshold
+    # The false positives are the ones that are above the threshold in the LSH vector
+    # but not in the naive vector
+    false_positives = (naive_vector[lsh_positives] < threshold).sum()
 
     return false_negatives, false_positives
 
