@@ -211,10 +211,10 @@ def k_shingles() -> KShingles:
 
     def _hash(s: str) -> int:
         """
-        Hashes a string using SHA256 and returns the first 8 bytes as an integer.
+        Hashes a string using SHA256 and returns the first 4 bytes as an integer.
         """
         return int.from_bytes(
-            hashlib.sha256(s.encode("utf-8"), usedforsecurity=False).digest()[:8],
+            hashlib.sha256(s.encode("utf-8"), usedforsecurity=False).digest()[:4],
             byteorder="big",
             signed=True,
         )
