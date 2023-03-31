@@ -564,11 +564,7 @@ def count_false_neg_and_pos(
     """
     Counts the number of false positives and false negatives in the LSH similarity matrix.
     Implements the second interpretation of the question posted in https://piazza.com/class/lcjbhskazb33nq/post/112,
-    i.e. candidate pairs from LSH whose similarity measure is > `threshold`, but the naive similarity is < `threshold`,
-    and not the interpretation of false positives in MMDS 3.4.3, page 103:
-
-        There will also be false positives - candidate pairs that are evaluated,
-        but are found not to be sufficiently similar.
+    i.e. candidate pairs from LSH whose similarity measure is > `threshold`, but the naive similarity is < `threshold`.
 
     False positives are defined as pairs of documents that are above the similarity threshold in
     `lsh_similarity_matrix`, but not in `naive_similarity_matrix`.
