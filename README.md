@@ -8,3 +8,4 @@ Each subfolder contains an assignment of the project, all implemented in Python.
 
 - `spark` contains notebooks that use [Spark](https://spark.apache.org/) to analyze the data in the `data` subfolder. The data was stored and analyzed on the [Databricks](https://www.databricks.com/) platform.
 - `locality_sensitive_hashing` implements the [Locality-Sensitive Hashing](https://en.wikipedia.org/wiki/Locality-sensitive_hashing) algorithm to analyze similarities between BBC articles in the `data/bbc` subfolder.
+- `bloom_filter` implements a [Bloom Filter](https://en.wikipedia.org/wiki/Bloom_filter) to analyze similarities between new and existing passwords.
