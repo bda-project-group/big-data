@@ -1,12 +1,10 @@
-# This is the code for the Bloom Filter project of TDT4305
-
 import configparser  # for reading the parameters file
 from pathlib import Path  # for paths of files
 import time  # for timing
 import numpy as np  # for creating the bit array
 import numpy.typing as npt
 import random
-from typing import Callable, Optional, Any
+from typing import Callable
 
 # Global parameters
 parameter_file = "default_parameters.ini"  # the main parameters file
@@ -53,7 +51,8 @@ def bloom_filter(
 
 
 # DO NOT CHANGE THIS METHOD
-# Reads all the passwords one by one simulating a stream and calls the method bloom_filter(new_password)
+# Reads all the passwords one by one simulating a stream and calls the method
+# bloom_filter(new_password)
 # for each password read
 # Signature updated to accept the bit array and hash functions for the bloom filter, allowed as per
 # Piazza@135.
